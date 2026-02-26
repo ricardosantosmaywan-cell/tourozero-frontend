@@ -78,7 +78,7 @@ export default function Rentals() {
                 </div>
             </div>
 
-            <div className="rounded-lg border border-slate-800 bg-slate-900/50">
+            <div className="rounded-lg border border-slate-800 bg-slate-900/50 overflow-x-auto">
                 <Table>
                     <TableHeader>
                         <TableRow>
