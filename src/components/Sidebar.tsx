@@ -1,9 +1,24 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Home, Users, CalendarDays, Package, PieChart, LogOut } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 
 export default function Sidebar() {
     const location = useLocation();
+    const navigate = useNavigate();
+    const { signOut } = useAuth();
+
+    const handleLogout = async () => {
+        try {
+            await supabase.auth.signOut();
+            await signOut();
+            localStorage.clear();
+            navigate('/login');
+        } catch (error) {
+            console.error('Erro ao encerrar sessão:', error);
+        }
+    };
 
     const menuItems = [
         { icon: Home, label: 'Dashboard', path: '/' },
@@ -45,6 +60,7 @@ export default function Sidebar() {
 
             <div className="p-4 border-t border-slate-800">
                 <button
+                    onClick={handleLogout}
                     className="flex items-center gap-3 px-3 py-2 w-full text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-lg transition-colors text-sm font-medium"
                 >
                     <LogOut className="w-5 h-5" />
