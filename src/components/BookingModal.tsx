@@ -144,7 +144,7 @@ export function BookingModal({ isOpen, onClose, rentalToEdit }: BookingModalProp
                 setFormError('Nome e NIF são obrigatórios.');
                 return;
             }
-            customerToUse = addCustomer(newCustomerData as Omit<Customer, 'id'>);
+            customerToUse = await addCustomer(newCustomerData as Omit<Customer, 'id'>);
         }
 
         if (!customerToUse) {
