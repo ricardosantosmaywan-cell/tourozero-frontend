@@ -5,12 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '../components/ui/Table';
-import { Euro, Users, Package, Clock, AlertCircle, Plus, CheckCircle2, Search, Edit2, Eye, AlertTriangle } from 'lucide-react';
+import { Euro, Users, Package, Clock, AlertCircle, Plus, CheckCircle2, Search, Edit2, Eye, AlertTriangle, FileText } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { BookingModal } from '../components/BookingModal';
 import { ClientModal } from '../components/ClientModal';
 import { ViewRentalModal } from '../components/ViewRentalModal';
 import { useGlobalRentals, useGlobalProducts } from '../data/mockDatabase';
+import { generateRentalContract } from '../lib/pdfGenerator';
 
 export default function Dashboard() {
     const navigate = useNavigate();
@@ -263,6 +264,14 @@ export default function Dashboard() {
                                                         }}
                                                     >
                                                         <Eye className="w-4 h-4 mr-1.5" /> Ver
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="text-slate-400 hover:text-slate-300 hover:bg-slate-800/50 border border-transparent hover:border-slate-700/50"
+                                                        onClick={() => generateRentalContract(rental)}
+                                                    >
+                                                        <FileText className="w-4 h-4 mr-1.5" /> Contrato
                                                     </Button>
                                                     <Button
                                                         variant="ghost"

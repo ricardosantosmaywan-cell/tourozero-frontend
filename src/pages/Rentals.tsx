@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Search, ChevronLeft, ChevronRight, Eye, Edit2, Trash2 } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, Eye, Edit2, Trash2, FileText } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
 import { useGlobalRentals } from '../data/mockDatabase';
+import { generateRentalContract } from '../lib/pdfGenerator';
 import { BookingModal } from '../components/BookingModal';
 import { ViewRentalModal } from '../components/ViewRentalModal';
 
@@ -128,6 +129,15 @@ export default function Rentals() {
                                             onClick={() => openViewModal(rental)}
                                         >
                                             <Eye className="w-4 h-4" />
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="text-slate-400 hover:text-slate-300 hover:bg-slate-800/50 border border-transparent"
+                                            onClick={() => generateRentalContract(rental)}
+                                            title="Imprimir Contrato PDF"
+                                        >
+                                            <FileText className="w-4 h-4" />
                                         </Button>
                                         <Button
                                             variant="ghost"

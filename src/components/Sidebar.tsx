@@ -50,6 +50,11 @@ export default function Sidebar() {
                     <LogOut className="w-5 h-5" />
                     Sair
                 </button>
+                <div className="mt-4 pt-2 border-t border-slate-800/50 text-center">
+                    <p className="text-[10px] text-slate-500/70 tracking-wide font-medium">
+                        Desenvolvido por Ricardo Pereira
+                    </p>
+                </div>
             </div>
         </aside>
     );
