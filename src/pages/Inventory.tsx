@@ -4,12 +4,15 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
 import { Search, Plus, Edit2, Trash2, X, AlertTriangle, CheckCircle2 } from 'lucide-react';
-import { useGlobalProducts } from '../data/mockDatabase';
+import { useGlobalProducts, useGlobalRentals } from '../data/mockDatabase';
 import type { Product } from '../data/mockDatabase';
 
 export default function Inventory() {
     // Liga directamente à Store Global MOCK
     const { products, addProduct, updateProduct, deleteProduct } = useGlobalProducts();
+    const { rentals } = useGlobalRentals();
+    const activeRentals = rentals.filter(r => r.status === 'active');
+
     const [searchTerm, setSearchTerm] = useState('');
     const loading = false; // Mock data is instant
 
@@ -118,7 +121,11 @@ export default function Inventory() {
                             </TableRow>
                         ) : (
                             filteredProducts.map(product => {
-                                const available = product.available ?? product.stock_total;
+                                const rentedQuantity = activeRentals.reduce((total, rental) => {
+                                    const item = rental.items?.find((i: any) => i.product_id === product.id);
+                                    return total + (item ? item.quantity : 0);
+                                }, 0);
+                                const available = product.stock_total - rentedQuantity;
                                 const isLowStock = available <= (product.stock_total * 0.2); // Alerta se =< 20%
 
                                 return (
