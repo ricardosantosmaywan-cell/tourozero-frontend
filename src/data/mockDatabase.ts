@@ -10,9 +10,9 @@ export interface Customer {
     full_name: string;
     phone: string;
     tax_id: string;
-    email?: string;
-    address?: string;
-    document_id?: string;
+    email?: string | null;
+    address?: string | null;
+    document_id?: string | null;
     created_at?: string;
 }
 
@@ -70,7 +70,14 @@ export function useGlobalCustomers() {
     }, []);
 
     async function addCustomer(newCustomer: Omit<Customer, 'id'>) {
-        const { data, error } = await supabase.from('customers').insert([newCustomer]).select().single();
+        const payload = {
+            ...newCustomer,
+            phone: newCustomer.phone?.trim() ? newCustomer.phone : 'Não informado',
+            email: newCustomer.email?.trim() ? newCustomer.email : null,
+            address: newCustomer.address?.trim() ? newCustomer.address : null,
+            document_id: newCustomer.document_id?.trim() ? newCustomer.document_id : null,
+        };
+        const { data, error } = await supabase.from('customers').insert([payload]).select().single();
         if (!error && data) {
             setCustomers(prev => [...prev, data as Customer].sort((a, b) => a.full_name.localeCompare(b.full_name)));
             return data;
@@ -79,7 +86,21 @@ export function useGlobalCustomers() {
     }
 
     async function updateCustomer(id: string, updatedData: Partial<Customer>) {
-        const { data, error } = await supabase.from('customers').update(updatedData).eq('id', id).select().single();
+        const payload = { ...updatedData };
+        if (payload.phone !== undefined) {
+            payload.phone = payload.phone?.trim() ? payload.phone : 'Não informado';
+        }
+        if (payload.email !== undefined) {
+            payload.email = payload.email?.trim() ? payload.email : null;
+        }
+        if (payload.address !== undefined) {
+            payload.address = payload.address?.trim() ? payload.address : null;
+        }
+        if (payload.document_id !== undefined) {
+            payload.document_id = payload.document_id?.trim() ? payload.document_id : null;
+        }
+
+        const { data, error } = await supabase.from('customers').update(payload).eq('id', id).select().single();
         if (!error && data) {
             setCustomers(prev => prev.map(c => c.id === id ? data as Customer : c).sort((a, b) => a.full_name.localeCompare(b.full_name)));
             return data;
