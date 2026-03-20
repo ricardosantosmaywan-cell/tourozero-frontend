@@ -12,7 +12,7 @@ interface BookingModalProps {
 }
 
 export function BookingModal({ isOpen, onClose, rentalToEdit }: BookingModalProps) {
-    const { addRental, updateRental } = useGlobalRentals();
+    const { rentals, addRental, updateRental } = useGlobalRentals();
     const { customers, addCustomer } = useGlobalCustomers();
     const { products } = useGlobalProducts();
 
@@ -24,6 +24,7 @@ export function BookingModal({ isOpen, onClose, rentalToEdit }: BookingModalProp
     const [pickupDate, setPickupDate] = useState('');
     const [returnDate, setReturnDate] = useState('');
     const [selectedProducts, setSelectedProducts] = useState<{ product: any, quantity: number }[]>([]);
+    const [selectedProductId, setSelectedProductId] = useState<string>('');
     const [manualTotal, setManualTotal] = useState<number>(0);
     const [durationWeeks, setDurationWeeks] = useState<number | ''>(1);
     const [deliveryAddress, setDeliveryAddress] = useState('');
@@ -65,6 +66,7 @@ export function BookingModal({ isOpen, onClose, rentalToEdit }: BookingModalProp
         setPickupDate('');
         setReturnDate('');
         setSelectedProducts([]);
+        setSelectedProductId('');
         setManualTotal(0);
         setShowCustomerForm(false);
         setNewCustomerData({ full_name: '', phone: '', address: '', tax_id: '', email: '', document_id: '' });
@@ -114,11 +116,17 @@ export function BookingModal({ isOpen, onClose, rentalToEdit }: BookingModalProp
         }
 
         // Validação de Stock
+        const activeRentals = rentals.filter((r: any) => r.status === 'active');
         for (const sp of finalProducts) {
             const currentProduct = products.find(p => p.id === sp.product.id);
             if (!currentProduct) continue;
 
-            const availableStock = currentProduct.available ?? currentProduct.stock_total;
+            const rentedQuantity = activeRentals.reduce((total: number, rental: any) => {
+                const item = rental.items?.find((i: any) => i.product_id === sp.product.id);
+                return total + (item ? item.quantity : 0);
+            }, 0);
+            const availableStock = currentProduct.stock_total - rentedQuantity;
+
             let previouslyReserved = 0;
 
             if (rentalToEdit && rentalToEdit.status === 'active') {
@@ -286,13 +294,37 @@ export function BookingModal({ isOpen, onClose, rentalToEdit }: BookingModalProp
                             <div className="flex-1">
                                 <select
                                     id="productSelect"
+                                    value={selectedProductId}
+                                    onChange={(e) => setSelectedProductId(e.target.value)}
                                     className="flex h-9 w-full rounded-md border border-slate-800 bg-slate-900 px-3 py-1 text-sm text-slate-50 focus:ring-1 focus:ring-amber-500"
                                 >
                                     <option value="">Selecione um produto...</option>
                                     {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                                 </select>
                             </div>
-                            <Input type="number" id="productQty" defaultValue="1" min="1" className="w-24 h-9" />
+                            {(() => {
+                                let maxAllowed = 1000;
+                                const prod = products.find(p => p.id === selectedProductId);
+                                if (prod) {
+                                    const activeRentals = rentals.filter((r: any) => r.status === 'active');
+                                    const rentedQuantity = activeRentals.reduce((total: number, rental: any) => {
+                                        const item = rental.items?.find((i: any) => i.product_id === prod.id);
+                                        return total + (item ? item.quantity : 0);
+                                    }, 0);
+                                    let previouslyReserved = 0;
+                                    if (rentalToEdit && rentalToEdit.status === 'active') {
+                                        const oldItem = rentalToEdit.items.find((i: any) => i.product_id === prod.id);
+                                        if (oldItem) previouslyReserved = oldItem.quantity;
+                                    }
+                                    const exists = selectedProducts.find(sp => sp.product.id === prod.id);
+                                    const currentCartQty = exists ? exists.quantity : 0;
+
+                                    maxAllowed = prod.stock_total - rentedQuantity - currentCartQty + previouslyReserved;
+                                }
+                                return (
+                                    <Input type="number" id="productQty" defaultValue="1" min="1" max={selectedProductId ? Math.max(0, maxAllowed) : undefined} className="w-24 h-9" />
+                                );
+                            })()}
                             <Button type="button" variant="secondary" onClick={() => {
                                 const sel = document.getElementById('productSelect') as HTMLSelectElement;
                                 const qty = document.getElementById('productQty') as HTMLInputElement;
@@ -300,11 +332,34 @@ export function BookingModal({ isOpen, onClose, rentalToEdit }: BookingModalProp
 
                                 const prod = products.find(p => p.id === sel.value);
                                 if (prod) {
+                                    const qtyValue = parseInt(qty.value) || 1;
+
+                                    const activeRentals = rentals.filter((r: any) => r.status === 'active');
+                                    const rentedQuantity = activeRentals.reduce((total: number, rental: any) => {
+                                        const item = rental.items?.find((i: any) => i.product_id === prod.id);
+                                        return total + (item ? item.quantity : 0);
+                                    }, 0);
+                                    const availableStock = prod.stock_total - rentedQuantity;
+
+                                    let previouslyReserved = 0;
+                                    if (rentalToEdit && rentalToEdit.status === 'active') {
+                                        const oldItem = rentalToEdit.items.find((i: any) => i.product_id === prod.id);
+                                        if (oldItem) previouslyReserved = oldItem.quantity;
+                                    }
+
                                     const exists = selectedProducts.find(sp => sp.product.id === prod.id);
+                                    const currentCartQty = exists ? exists.quantity : 0;
+
+                                    if ((currentCartQty + qtyValue) - previouslyReserved > availableStock) {
+                                        setFormError(`A quantidade solicitada para "${prod.name}" está indisponível. Apenas ${availableStock + previouslyReserved} em stock.`);
+                                        return;
+                                    }
+                                    setFormError('');
+
                                     if (exists) {
-                                        setSelectedProducts(selectedProducts.map(sp => sp.product.id === prod.id ? { ...sp, quantity: sp.quantity + parseInt(qty.value) } : sp));
+                                        setSelectedProducts(selectedProducts.map(sp => sp.product.id === prod.id ? { ...sp, quantity: sp.quantity + qtyValue } : sp));
                                     } else {
-                                        setSelectedProducts([...selectedProducts, { product: prod, quantity: parseInt(qty.value) }]);
+                                        setSelectedProducts([...selectedProducts, { product: prod, quantity: qtyValue }]);
                                     }
                                 }
                             }}><PlusCircle className="h-4 w-4" /></Button>

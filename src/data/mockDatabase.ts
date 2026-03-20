@@ -13,6 +13,7 @@ export interface Customer {
     email?: string | null;
     address?: string | null;
     document_id?: string | null;
+    document_photo_url?: string | null;
     created_at?: string;
 }
 

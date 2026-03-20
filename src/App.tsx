@@ -6,6 +6,7 @@ import Customers from './pages/Customers';
 import Rentals from './pages/Rentals';
 import Inventory from './pages/Inventory';
 import Accounting from './pages/Accounting';
+import PublicRegistration from './pages/PublicRegistration';
 import Login from './pages/Login';
 
 // Componente para rotas protegidas
@@ -29,6 +30,7 @@ function App() {
       <Router>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/publico/cadastro" element={<PublicRegistration />} />
           <Route path="/" element={
             <ProtectedRoute>
               <Layout />
