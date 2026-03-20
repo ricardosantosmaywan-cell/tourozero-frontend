@@ -96,8 +96,11 @@ export default function Dashboard() {
         monthlyRevenue,
         activeCustomers: displayRentals.length,
         stockStatus: {
-            total: products.reduce((acc, p) => acc + p.stock_total, 0),
-            rented: activeRentals.reduce((acc, curr) => acc + (curr.itemsCount || 0), 0)
+            total: products.filter(p => p.name.toLowerCase().includes('andaime')).reduce((acc, p) => acc + p.stock_total, 0),
+            rented: activeRentals.reduce((acc, curr) => {
+                const andaimesRented = curr.items?.filter((it: any) => it.name.toLowerCase().includes('andaime')).reduce((sum: number, it: any) => sum + it.quantity, 0) || 0;
+                return acc + andaimesRented;
+            }, 0)
         }
     };
 
@@ -158,7 +161,7 @@ export default function Dashboard() {
                     : ''
                     }`}>
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium text-slate-400">Status Geral do Estoque</CardTitle>
+                        <CardTitle className="text-sm font-medium text-slate-400">Stock de Andaimes</CardTitle>
                         {(stats.stockStatus.total > 0 && ((stats.stockStatus.total - stats.stockStatus.rented) / stats.stockStatus.total) < 0.1) ? (
                             <AlertTriangle className="h-4 w-4 text-red-500 animate-pulse" />
                         ) : (
