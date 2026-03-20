@@ -176,23 +176,23 @@ export default function Dashboard() {
                 </Card>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                <div className="lg:col-span-2 space-y-4">
+            <div className="grid gap-6 lg:grid-cols-12">
+                <div className="lg:col-span-8 xl:col-span-9 space-y-4">
                     {/* Controles de Tabela */}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <h2 className="text-xl font-semibold tracking-tight text-slate-50">Alugueres Ativos</h2>
 
-                        <div className="flex flex-wrap items-center gap-2">
-                            <div className="relative w-48">
-                                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
+                        <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto flex-1 justify-end">
+                            <div className="relative w-full sm:max-w-xs xl:max-w-sm shrink-1">
+                                <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
                                 <Input
-                                    placeholder="Buscar cliente..."
-                                    className="pl-9 h-9"
+                                    placeholder="Buscar por cliente..."
+                                    className="pl-9 h-10 w-full"
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                 />
                             </div>
-                            <div className="flex rounded-md shadow-sm border border-slate-700 p-0.5 bg-slate-900">
+                            <div className="flex rounded-md shadow-sm border border-slate-700 p-0.5 bg-slate-900 shrink-0 h-10 items-center">
                                 <button
                                     onClick={() => setFilterStatus('all')}
                                     className={`px-3 py-1.5 text-xs font-medium rounded-sm transition-colors ${filterStatus === 'all' ? 'bg-amber-500 text-slate-900' : 'text-slate-400 hover:text-slate-200'}`}
@@ -218,11 +218,11 @@ export default function Dashboard() {
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>Cliente</TableHead>
-                                    <TableHead>Entrega</TableHead>
-                                    <TableHead>Status</TableHead>
-                                    <TableHead>Valor (€)</TableHead>
-                                    <TableHead className="text-right">Ação</TableHead>
+                                    <TableHead className="w-[30%]">Cliente</TableHead>
+                                    <TableHead className="w-[15%]">Entrega</TableHead>
+                                    <TableHead className="w-[20%]">Status</TableHead>
+                                    <TableHead className="w-[15%]">Valor (€)</TableHead>
+                                    <TableHead className="w-[20%] text-right whitespace-nowrap">Ação</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -241,11 +241,11 @@ export default function Dashboard() {
                                                 <TableCell>{new Date(rental.pickup_date).toLocaleDateString()}</TableCell>
                                                 <TableCell>
                                                     {late ? (
-                                                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-red-500/10 text-red-500 border border-red-500/20">
-                                                            <AlertCircle className="w-3 h-3" /> Atrasado
+                                                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-red-500/10 text-red-500 border border-red-500/20 whitespace-nowrap">
+                                                            <AlertCircle className="w-3.5 h-3.5" /> Atrasado
                                                         </span>
                                                     ) : (
-                                                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                                        <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20 whitespace-nowrap">
                                                             Em dia
                                                         </span>
                                                     )}
@@ -311,7 +311,7 @@ export default function Dashboard() {
                     </div>
                 </div>
 
-                <div className="space-y-4">
+                <div className="lg:col-span-4 xl:col-span-3 space-y-4">
                     <h2 className="text-xl font-semibold tracking-tight text-slate-50">Evolução Receitas</h2>
                     <Card className="bg-slate-900 border-slate-800">
                         <CardContent className="p-4 h-[220px]">
