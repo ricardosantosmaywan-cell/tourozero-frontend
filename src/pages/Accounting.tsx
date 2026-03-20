@@ -33,7 +33,7 @@ export default function Accounting() {
         setFilteredRentals(filteredData);
 
         // 2. Faturamento (Exclui a Caução)
-        const revenue = filteredData.reduce((acc, curr) => acc + (Number(curr.total_value || 0) - Number(curr.deposit_fee || 0)), 0);
+        const revenue = filteredData.reduce((acc, curr) => acc + (Number(curr.total_amount || 0) - Number(curr.deposit_value || 0)), 0);
         setTotalRevenue(revenue);
 
         // 3. Produtos Mais Alugados (Top 5)
@@ -185,7 +185,7 @@ export default function Accounting() {
                                 <TableRow key={r.id} className="print:border-b print:border-slate-200">
                                     <TableCell className="print:text-black">{new Date(r.pickup_date).toLocaleDateString('pt-BR')}</TableCell>
                                     <TableCell className="print:text-black font-medium">{r.customers?.full_name || 'Desconhecido'}</TableCell>
-                                    <TableCell className="text-right font-medium print:text-black">{(Number(r.total_value || 0) - Number(r.deposit_fee || 0)).toFixed(2)} €</TableCell>
+                                    <TableCell className="text-right font-medium print:text-black">{(Number(r.total_amount || 0) - Number(r.deposit_value || 0)).toFixed(2)} €</TableCell>
                                     <TableCell className="text-right print:text-black">
                                         <span className={`text-xs px-2 py-1 rounded-full inline-block ${r.status === 'active' ? 'bg-emerald-500/10 text-emerald-500 print:border print:border-emerald-500' : 'bg-slate-500/10 text-slate-500 print:border print:border-slate-500'}`}>
                                             {r.status === 'active' ? 'Ativo' : (r.status === 'completed' ? 'Finalizado' : 'Cancelado')}

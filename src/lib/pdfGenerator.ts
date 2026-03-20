@@ -88,10 +88,10 @@ export function generateRentalContract(rental: Rental) {
     // cast pois na declaração do jspdf autoTable "lastAutoTable" entra como propriedade estendida
     const finalY = (doc as any).lastAutoTable.finalY || startYRental + 30;
 
-    const subtotal = Number(rental.total_value) - Number(rental.transport_fee || 0) - Number(rental.deposit_fee || 0);
-    const transport = Number(rental.transport_fee || 0);
-    const deposit = Number(rental.deposit_fee || 0);
-    const total = Number(rental.total_value);
+    const subtotal = Number(rental.total_amount) - Number(rental.transport_value || 0) - Number(rental.deposit_value || 0);
+    const transport = Number(rental.transport_value || 0);
+    const deposit = Number(rental.deposit_value || 0);
+    const total = Number(rental.total_amount);
 
     let currentY = finalY + 10;
     doc.setFont('helvetica', 'normal');

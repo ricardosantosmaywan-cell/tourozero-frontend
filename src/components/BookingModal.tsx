@@ -9,9 +9,10 @@ interface BookingModalProps {
     isOpen: boolean;
     onClose: () => void;
     rentalToEdit?: any; // Passado quando o botão Editar é clicado (opcional)
+    onSuccess?: () => void;
 }
 
-export function BookingModal({ isOpen, onClose, rentalToEdit }: BookingModalProps) {
+export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: BookingModalProps) {
     const { rentals, addRental, updateRental } = useGlobalRentals();
     const { customers, addCustomer } = useGlobalCustomers();
     const { products } = useGlobalProducts();
@@ -54,9 +55,9 @@ export function BookingModal({ isOpen, onClose, rentalToEdit }: BookingModalProp
                 setSelectedProducts(mappedProducts);
                 setSelectedProducts([]);
             }
-            setManualTotal(rentalToEdit.total_value ? rentalToEdit.total_value - (rentalToEdit.transport_fee || 0) - (rentalToEdit.deposit_fee || 0) : 0);
-            setTransportFee(rentalToEdit.transport_fee || 0);
-            setDepositFee(rentalToEdit.deposit_fee || 0);
+            setManualTotal(rentalToEdit.total_amount ? rentalToEdit.total_amount - (rentalToEdit.transport_value || 0) - (rentalToEdit.deposit_value || 0) : 0);
+            setTransportFee(rentalToEdit.transport_value || 0);
+            setDepositFee(rentalToEdit.deposit_value || 0);
         } else {
             // "todos os campos iniciem vazios"
             resetState();
@@ -174,9 +175,9 @@ export function BookingModal({ isOpen, onClose, rentalToEdit }: BookingModalProp
             return_date: returnDate,
             semanas: finalSemanas,
             delivery_address: deliveryAddress,
-            total_value: totalPayload,
-            transport_fee: transportFee || 0,
-            deposit_fee: depositFee || 0,
+            total_amount: totalPayload,
+            transport_value: transportFee || 0,
+            deposit_value: depositFee || 0,
             status: rentalToEdit ? rentalToEdit.status : 'active',
             itemsCount: finalProducts.reduce((sum, sp) => sum + sp.quantity, 0),
             items: finalProducts.map(sp => ({
@@ -189,18 +190,24 @@ export function BookingModal({ isOpen, onClose, rentalToEdit }: BookingModalProp
 
         console.log("Dados do Agendamento:", payload);
 
-        if (rentalToEdit) {
-            updateRental(rentalToEdit.id, payload);
-        } else {
-            addRental(payload);
-        }
+        try {
+            if (rentalToEdit) {
+                await updateRental(rentalToEdit.id, payload);
+            } else {
+                await addRental(payload);
+            }
 
-        setShowSuccessToast(true);
-        setTimeout(() => {
-            setShowSuccessToast(false);
-            resetState();
-            onClose();
-        }, 1500);
+            setShowSuccessToast(true);
+            if (onSuccess) onSuccess();
+
+            setTimeout(() => {
+                setShowSuccessToast(false);
+                resetState();
+                onClose();
+            }, 1500);
+        } catch (e: any) {
+            setFormError(e.message || 'Erro ao processar o agendamento.');
+        }
     }
 
     if (!isOpen) return null;

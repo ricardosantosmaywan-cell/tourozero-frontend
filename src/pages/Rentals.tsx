@@ -10,7 +10,7 @@ import { ViewRentalModal } from '../components/ViewRentalModal';
 
 export default function Rentals() {
     // Integração Directa à Base Central Mock
-    const { rentals, deleteRental } = useGlobalRentals();
+    const { rentals, deleteRental, refreshRentals } = useGlobalRentals();
 
     // Remover o loading já que os dados vêm imediatamente em memória
     const [searchTerm, setSearchTerm] = useState('');
@@ -120,7 +120,7 @@ export default function Rentals() {
                                                         : 'Concluído'}
                                         </span>
                                     </TableCell>
-                                    <TableCell className="font-medium">{Number(rental.total_value).toFixed(2)} €</TableCell>
+                                    <TableCell className="font-medium">{Number(rental.total_amount).toFixed(2)} €</TableCell>
                                     <TableCell className="text-right flex items-center justify-end gap-2">
                                         <Button
                                             variant="ghost"
@@ -201,7 +201,6 @@ export default function Rentals() {
                     </div>
                 )}
             </div>
-            {/* Modal Centralizado de Novo Agendamento */}
             <BookingModal
                 isOpen={isBookingModalOpen}
                 onClose={() => {
@@ -209,6 +208,7 @@ export default function Rentals() {
                     setRentalToEdit(null);
                 }}
                 rentalToEdit={rentalToEdit}
+                onSuccess={() => refreshRentals()}
             />
 
             <ViewRentalModal

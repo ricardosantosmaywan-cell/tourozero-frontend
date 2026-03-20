@@ -42,13 +42,13 @@ export interface Rental {
     customer_phone?: string;
     pickup_date: string;
     return_date: string;
-    total_value: number;
+    total_amount: number;
     status: 'active' | 'completed' | 'canceled';
     semanas?: number;
     delivery_address?: string;
     observacoes?: string;
-    transport_fee?: number;
-    deposit_fee?: number;
+    transport_value?: number;
+    deposit_value?: number;
     itemsCount: number;
     items: RentalItem[];
     created_at?: string;
@@ -213,13 +213,13 @@ export function useGlobalRentals() {
                 customers: r.customers || { full_name: 'Desconhecido', phone: '', email: '', tax_id: '' },
                 pickup_date: r.pickup_date,
                 return_date: r.return_date,
-                total_value: r.total_value,
+                total_amount: r.total_amount,
                 status: r.status,
                 semanas: r.semanas,
                 delivery_address: r.delivery_address,
                 observacoes: r.observacoes,
-                transport_fee: r.transport_fee || 0,
-                deposit_fee: r.deposit_fee || 0,
+                transport_value: r.transport_value || 0,
+                deposit_value: r.deposit_value || 0,
                 created_at: r.created_at,
                 itemsCount: r.rental_items ? r.rental_items.reduce((sum: number, it: any) => sum + it.quantity, 0) : 0,
                 items: r.rental_items ? r.rental_items.map((it: any) => ({
@@ -245,13 +245,13 @@ export function useGlobalRentals() {
                 customer_id: newRentalData.customers?.id || newRentalData.customer_id,
                 pickup_date: newRentalData.pickup_date,
                 return_date: newRentalData.return_date,
-                total_value: newRentalData.total_value,
+                total_amount: newRentalData.total_amount,
                 status: newRentalData.status || 'active',
                 semanas: newRentalData.semanas,
                 delivery_address: newRentalData.delivery_address,
                 observacoes: newRentalData.observacoes,
-                transport_fee: newRentalData.transport_fee || 0,
-                deposit_fee: newRentalData.deposit_fee || 0
+                transport_value: newRentalData.transport_value || 0,
+                deposit_value: newRentalData.deposit_value || 0
             };
 
             const { data: insertedRental, error: rentalError } = await supabase.from('rentals').insert([rentalPayload]).select().single();
@@ -312,13 +312,13 @@ export function useGlobalRentals() {
             const rentalPayload = {
                 pickup_date: updatedData.pickup_date,
                 return_date: updatedData.return_date,
-                total_value: updatedData.total_value,
+                total_amount: updatedData.total_amount,
                 status: updatedData.status,
                 semanas: updatedData.semanas,
                 delivery_address: updatedData.delivery_address,
                 observacoes: updatedData.observacoes,
-                transport_fee: updatedData.transport_fee || 0,
-                deposit_fee: updatedData.deposit_fee || 0
+                transport_value: updatedData.transport_value || 0,
+                deposit_value: updatedData.deposit_value || 0
             };
             if (updatedData.customers?.id || updatedData.customer_id) {
                 (rentalPayload as any).customer_id = updatedData.customers?.id || updatedData.customer_id;

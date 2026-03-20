@@ -24,12 +24,12 @@ export default function Customers() {
 
     // Mock History State (Global for simulation)
     const [mockRentalsDataset] = useState([
-        { id: '101', customer_id: '1', pickup_date: '2025-08-10', return_date: '2025-09-10', total_value: 120.00, status: 'completed' },
-        { id: '102', customer_id: '1', pickup_date: '2025-11-05', return_date: '2025-11-20', total_value: 60.00, status: 'completed' },
-        { id: '103', customer_id: '1', pickup_date: '2026-02-10', return_date: '2026-03-10', total_value: 240.00, status: 'active' },
-        { id: '104', customer_id: '2', pickup_date: '2026-01-15', return_date: '2026-01-20', total_value: 80.00, status: 'completed' },
-        { id: '105', customer_id: '3', pickup_date: '2025-12-01', return_date: '2026-01-01', total_value: 300.00, status: 'completed' },
-        { id: '106', customer_id: '3', pickup_date: '2026-02-15', return_date: '2026-02-28', total_value: 150.00, status: 'active' },
+        { id: '101', customer_id: '1', pickup_date: '2025-08-10', return_date: '2025-09-10', total_amount: 120.00, status: 'completed' },
+        { id: '102', customer_id: '1', pickup_date: '2025-11-05', return_date: '2025-11-20', total_amount: 60.00, status: 'completed' },
+        { id: '103', customer_id: '1', pickup_date: '2026-02-10', return_date: '2026-03-10', total_amount: 240.00, status: 'active' },
+        { id: '104', customer_id: '2', pickup_date: '2026-01-15', return_date: '2026-01-20', total_amount: 80.00, status: 'completed' },
+        { id: '105', customer_id: '3', pickup_date: '2025-12-01', return_date: '2026-01-01', total_amount: 300.00, status: 'completed' },
+        { id: '106', customer_id: '3', pickup_date: '2026-02-15', return_date: '2026-02-28', total_amount: 150.00, status: 'active' },
     ]);
 
     // Relacional filter for History
@@ -267,7 +267,7 @@ export default function Customers() {
                                         </div>
                                         <div className="text-3xl font-bold text-emerald-400 flex items-center gap-2">
                                             <Euro className="w-6 h-6 text-emerald-500/50" />
-                                            {getCustomerRentals(selectedProfile.id).reduce((acc, r) => acc + r.total_value, 0).toFixed(2)}
+                                            {getCustomerRentals(selectedProfile.id).reduce((acc, r) => acc + r.total_amount, 0).toFixed(2)}
                                         </div>
                                     </div>
 
@@ -286,7 +286,7 @@ export default function Customers() {
                                                     <TableRow key={rental.id} className="hover:bg-slate-800/30 transition-colors opacity-90">
                                                         <TableCell className="py-3">{new Date(rental.pickup_date).toLocaleDateString()}</TableCell>
                                                         <TableCell className="py-3">{new Date(rental.return_date).toLocaleDateString()}</TableCell>
-                                                        <TableCell className="py-3 font-medium text-slate-300">{rental.total_value.toFixed(2)} €</TableCell>
+                                                        <TableCell className="py-3 font-medium text-slate-300">{rental.total_amount.toFixed(2)} €</TableCell>
                                                         <TableCell className="py-3 text-right">
                                                             {rental.status === 'active' ? (
                                                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">

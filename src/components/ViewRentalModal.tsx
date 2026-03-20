@@ -110,7 +110,7 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
                             </div>
                             <div className="mt-4 pt-3 border-t border-slate-700/50 flex justify-between items-center">
                                 <span className="font-semibold text-slate-300">Total Efetivo</span>
-                                <span className="text-lg font-bold text-amber-500">{Number(rental.total_value).toFixed(2)} €</span>
+                                <span className="text-lg font-bold text-amber-500">{Number(rental.total_amount).toFixed(2)} €</span>
                             </div>
                         </div>
                     </div>
