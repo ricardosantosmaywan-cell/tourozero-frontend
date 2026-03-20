@@ -218,11 +218,11 @@ export default function Dashboard() {
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead className="w-[30%]">Cliente</TableHead>
-                                    <TableHead className="w-[15%]">Entrega</TableHead>
-                                    <TableHead className="w-[20%]">Status</TableHead>
-                                    <TableHead className="w-[15%]">Valor (€)</TableHead>
-                                    <TableHead className="w-[20%] text-right whitespace-nowrap">Ação</TableHead>
+                                    <TableHead className="w-[30%] min-w-[200px]">Cliente</TableHead>
+                                    <TableHead className="w-[15%] min-w-[120px]">Entrega</TableHead>
+                                    <TableHead className="w-[20%] min-w-[130px]">Status</TableHead>
+                                    <TableHead className="w-[15%] min-w-[120px]">Valor (€)</TableHead>
+                                    <TableHead className="w-[20%] text-right whitespace-nowrap min-w-[420px]">Ação</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>

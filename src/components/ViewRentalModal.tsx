@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Button } from './ui/Button';
 import { X, FileText, Edit2, Trash2 } from 'lucide-react';
 import { useGlobalRentals } from '../data/mockDatabase';
+import { supabase } from '../lib/supabase';
 
 interface ViewRentalModalProps {
     isOpen: boolean;
@@ -14,12 +15,45 @@ interface ViewRentalModalProps {
 export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: ViewRentalModalProps) {
     const { updateRental } = useGlobalRentals();
     const [notes, setNotes] = useState('');
+    const [fetchedItems, setFetchedItems] = useState<any[]>([]);
+    const [isLoadingItems, setIsLoadingItems] = useState(false);
 
     useEffect(() => {
-        if (rental) {
-            setNotes(rental.observacoes || '');
-        }
-    }, [rental]);
+        if (!isOpen || !rental) return;
+
+        setNotes(rental.observacoes || '');
+
+        const loadItems = async () => {
+            setIsLoadingItems(true);
+            try {
+                const { data, error } = await supabase
+                    .from('rental_items')
+                    .select(`
+                        quantity,
+                        price_unit,
+                        products ( name )
+                    `)
+                    .eq('rental_id', rental.id);
+
+                if (error) throw error;
+
+                if (data) {
+                    const mapped = data.map((item: any) => ({
+                        quantity: item.quantity,
+                        price_unit: item.price_unit,
+                        name: item.products?.name || 'Produto Desconhecido'
+                    }));
+                    setFetchedItems(mapped);
+                }
+            } catch (err) {
+                console.error("Erro ao carregar os itens do aluguer", err);
+            } finally {
+                setIsLoadingItems(false);
+            }
+        };
+
+        loadItems();
+    }, [isOpen, rental]);
 
     if (!isOpen || !rental) return null;
 
@@ -100,17 +134,37 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
                         </div>
 
                         <div>
-                            <p className="text-sm font-medium text-slate-400 mb-2">Produtos Alugados ({rental.itemsCount} un.)</p>
+                            <p className="text-sm font-medium text-slate-400 mb-2">Produtos Alugados ({fetchedItems.reduce((acc, it) => acc + it.quantity, 0)} un.)</p>
                             <div className="space-y-2">
-                                {rental.items?.map((item: any, idx: number) => (
-                                    <div key={idx} className="flex items-center justify-between text-sm bg-slate-900/50 p-2 rounded border border-slate-700/50">
-                                        <span className="text-slate-300">{item.quantity}x {item.name}</span>
-                                    </div>
-                                ))}
+                                {isLoadingItems ? (
+                                    <div className="text-sm text-slate-500 italic pb-2">A extrair produtos da base de dados...</div>
+                                ) : fetchedItems.length > 0 ? (
+                                    fetchedItems.map((item: any, idx: number) => (
+                                        <div key={idx} className="flex items-center justify-between text-sm bg-slate-900/50 p-2 rounded border border-slate-700/50">
+                                            <span className="text-slate-300">{item.quantity}x {item.name}</span>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="text-sm text-slate-500 italic pb-2">Sem produtos adicionados validamente.</div>
+                                )}
                             </div>
-                            <div className="mt-4 pt-3 border-t border-slate-700/50 flex justify-between items-center">
-                                <span className="font-semibold text-slate-300">Total Efetivo</span>
-                                <span className="text-lg font-bold text-amber-500">{Number(rental.total_amount).toFixed(2)} €</span>
+                            <div className="mt-4 pt-3 border-t border-slate-700/50 flex flex-col gap-1.5">
+                                <div className="flex justify-between items-center text-sm text-slate-400">
+                                    <span>Valor dos Materiais:</span>
+                                    <span>{Number((rental.total_amount || 0) - (rental.transport_value || 0) - (rental.deposit_value || 0)).toFixed(2)} €</span>
+                                </div>
+                                <div className="flex justify-between items-center text-sm text-slate-400">
+                                    <span>Serviço de Transporte:</span>
+                                    <span>{Number(rental.transport_value || 0).toFixed(2)} €</span>
+                                </div>
+                                <div className="flex justify-between items-center text-sm text-slate-400">
+                                    <span>Valor de Caução (Garantia):</span>
+                                    <span>{Number(rental.deposit_value || 0).toFixed(2)} €</span>
+                                </div>
+                                <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-700/50">
+                                    <span className="font-semibold text-slate-300">Total Efetivo a Pagar</span>
+                                    <span className="text-lg font-bold text-amber-500">{Number(rental.total_amount).toFixed(2)} €</span>
+                                </div>
                             </div>
                         </div>
                     </div>
