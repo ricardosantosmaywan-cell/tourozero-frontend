@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useGlobalRentals, useGlobalProducts } from '../data/mockDatabase';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
-import { Euro, TrendingUp, Filter, Printer } from 'lucide-react';
+import { Euro, TrendingUp, Filter, Printer, Truck } from 'lucide-react';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
 
 export default function Accounting() {
     const [totalRevenue, setTotalRevenue] = useState(0);
+    const [totalTransport, setTotalTransport] = useState(0);
     const [topProducts, setTopProducts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -32,9 +33,13 @@ export default function Accounting() {
         }
         setFilteredRentals(filteredData);
 
-        // 2. Faturamento (Exclui a Caução)
-        const revenue = filteredData.reduce((acc, curr) => acc + (Number(curr.total_amount || 0) - Number(curr.deposit_value || 0)), 0);
+        // 2. Faturamento (Exclui a Caução e Transporte)
+        const revenue = filteredData.reduce((acc, curr) => acc + (Number(curr.total_amount || 0) - Number(curr.deposit_value || 0) - Number(curr.transport_value || 0)), 0);
         setTotalRevenue(revenue);
+
+        // 2.1 Transporte 
+        const transportParams = filteredData.reduce((acc, curr) => acc + Number(curr.transport_value || 0), 0);
+        setTotalTransport(transportParams);
 
         // 3. Produtos Mais Alugados (Top 5)
         const productStats: Record<string, number> = {};
@@ -104,7 +109,7 @@ export default function Accounting() {
                 </Button>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2 print:hidden">
+            <div className="grid gap-6 md:grid-cols-3 print:hidden">
                 <Card className="bg-gradient-to-br from-slate-900 to-slate-950 border-emerald-500/20">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                         <CardTitle className="text-lg font-medium text-slate-300">Total Faturado</CardTitle>
@@ -116,6 +121,25 @@ export default function Accounting() {
                         ) : (
                             <>
                                 <div className="text-4xl font-bold text-emerald-400">{totalRevenue.toFixed(2)} €</div>
+                                <p className="text-sm text-slate-400 mt-2">
+                                    No período selecionado {startDate || endDate ? '(Filtrado)' : '(Todo período)'}
+                                </p>
+                            </>
+                        )}
+                    </CardContent>
+                </Card>
+
+                <Card className="bg-slate-900 border-slate-800 border-b-amber-500/50">
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                        <CardTitle className="text-lg font-medium text-slate-300">Custos de Transporte</CardTitle>
+                        <Truck className="h-6 w-6 text-amber-500" />
+                    </CardHeader>
+                    <CardContent>
+                        {loading ? (
+                            <div className="text-xl text-slate-500 animate-pulse">Calculando...</div>
+                        ) : (
+                            <>
+                                <div className="text-4xl font-bold text-amber-500">{totalTransport.toFixed(2)} €</div>
                                 <p className="text-sm text-slate-400 mt-2">
                                     No período selecionado {startDate || endDate ? '(Filtrado)' : '(Todo período)'}
                                 </p>
@@ -172,20 +196,22 @@ export default function Accounting() {
                             <TableHead className="print:text-black">Data do Aluguer</TableHead>
                             <TableHead className="print:text-black">Nome do Cliente</TableHead>
                             <TableHead className="text-right print:text-black">Valor Líquido (€)</TableHead>
+                            <TableHead className="text-right print:text-black">Transporte (€)</TableHead>
                             <TableHead className="text-right print:text-black">Status</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {filteredRentals.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={4} className="text-center py-8 text-slate-400 print:text-black">Nenhum registo encontrado no período selecionado.</TableCell>
+                                <TableCell colSpan={5} className="text-center py-8 text-slate-400 print:text-black">Nenhum registo encontrado no período selecionado.</TableCell>
                             </TableRow>
                         ) : (
                             filteredRentals.map(r => (
                                 <TableRow key={r.id} className="print:border-b print:border-slate-200">
                                     <TableCell className="print:text-black">{new Date(r.pickup_date).toLocaleDateString('pt-BR')}</TableCell>
                                     <TableCell className="print:text-black font-medium">{r.customers?.full_name || 'Desconhecido'}</TableCell>
-                                    <TableCell className="text-right font-medium print:text-black">{(Number(r.total_amount || 0) - Number(r.deposit_value || 0)).toFixed(2)} €</TableCell>
+                                    <TableCell className="text-right font-bold print:text-black text-emerald-400">{(Number(r.total_amount || 0) - Number(r.deposit_value || 0) - Number(r.transport_value || 0)).toFixed(2)} €</TableCell>
+                                    <TableCell className="text-right font-bold print:text-black text-amber-500">{(Number(r.transport_value || 0)).toFixed(2)} €</TableCell>
                                     <TableCell className="text-right print:text-black">
                                         <span className={`text-xs px-2 py-1 rounded-full inline-block ${r.status === 'active' ? 'bg-emerald-500/10 text-emerald-500 print:border print:border-emerald-500' : 'bg-slate-500/10 text-slate-500 print:border print:border-slate-500'}`}>
                                             {r.status === 'active' ? 'Ativo' : (r.status === 'completed' ? 'Finalizado' : 'Cancelado')}
@@ -201,6 +227,9 @@ export default function Accounting() {
                             </TableCell>
                             <TableCell className="text-right text-emerald-400 print:text-black py-4">
                                 {totalRevenue.toFixed(2)} €
+                            </TableCell>
+                            <TableCell className="text-right text-amber-500 print:text-black py-4">
+                                {totalTransport.toFixed(2)} €
                             </TableCell>
                             <TableCell></TableCell>
                         </TableRow>
