@@ -66,17 +66,20 @@ export function generateRentalContract(rental: Rental) {
         body: tableData,
         theme: 'plain',
         headStyles: {
-            fillColor: [0, 0, 0], // Preto puro (Preto e branco limpo)
-            textColor: [255, 255, 255],
-            fontStyle: 'bold'
+            fillColor: false,
+            textColor: [0, 0, 0],
+            fontStyle: 'bold',
+            lineWidth: { bottom: 0.5 },
+            lineColor: [0, 0, 0]
         },
         bodyStyles: {
             lineColor: [200, 200, 200],
-            lineWidth: 0.1,
-            textColor: [0, 0, 0]
+            lineWidth: { bottom: 0.1 },
+            textColor: [0, 0, 0],
+            fillColor: false
         },
         alternateRowStyles: {
-            fillColor: [245, 245, 245]
+            fillColor: false
         },
         margin: { top: 10, left: 14, right: 14 }
     });
