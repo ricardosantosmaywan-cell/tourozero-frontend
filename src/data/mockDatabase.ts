@@ -60,7 +60,7 @@ export function useGlobalCustomers() {
     const [customers, setCustomers] = useState<Customer[]>([]);
 
     async function fetchCustomers() {
-        const { data, error } = await supabase.from('customers').select('*').order('full_name');
+        const { data, error } = await supabase.from('customers').select('*').order('created_at', { ascending: false });
         if (!error && data) {
             setCustomers(data as Customer[]);
         }
@@ -80,7 +80,7 @@ export function useGlobalCustomers() {
         };
         const { data, error } = await supabase.from('customers').insert([payload]).select().single();
         if (!error && data) {
-            setCustomers(prev => [...prev, data as Customer].sort((a, b) => a.full_name.localeCompare(b.full_name)));
+            setCustomers(prev => [...prev, data as Customer].sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()));
             return data;
         }
         if (error) throw new Error(error.message);
@@ -103,7 +103,7 @@ export function useGlobalCustomers() {
 
         const { data, error } = await supabase.from('customers').update(payload).eq('id', id).select().single();
         if (!error && data) {
-            setCustomers(prev => prev.map(c => c.id === id ? data as Customer : c).sort((a, b) => a.full_name.localeCompare(b.full_name)));
+            setCustomers(prev => prev.map(c => c.id === id ? data as Customer : c).sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()));
             return data;
         }
         if (error) throw new Error(error.message);

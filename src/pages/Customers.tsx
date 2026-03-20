@@ -11,6 +11,7 @@ import { ClientModal } from '../components/ClientModal';
 export default function Customers() {
     const { customers, deleteCustomer } = useGlobalCustomers();
     const [searchTerm, setSearchTerm] = useState('');
+    const [filterDate, setFilterDate] = useState('');
 
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -36,10 +37,11 @@ export default function Customers() {
         return mockRentalsDataset.filter(r => r.customer_id === customerId);
     };
 
-    const filteredCustomers = customers.filter(c =>
-        c.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        c.tax_id?.includes(searchTerm)
-    );
+    const filteredCustomers = customers.filter(c => {
+        const matchesSearch = c.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || c.tax_id?.includes(searchTerm);
+        const matchesDate = filterDate ? c.created_at?.startsWith(filterDate) : true;
+        return matchesSearch && matchesDate;
+    });
 
     function openNewModal() {
         setCustomerToEdit(null);
@@ -71,8 +73,8 @@ export default function Customers() {
                 </Button>
             </div>
 
-            <div className="flex items-center gap-2 max-w-sm">
-                <div className="relative w-full">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                <div className="relative w-full max-w-sm">
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
                     <Input
                         placeholder="Buscar por nome ou NIF..."
@@ -80,6 +82,19 @@ export default function Customers() {
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
+                </div>
+                <div className="flex items-center gap-2">
+                    <Input
+                        type="date"
+                        value={filterDate}
+                        onChange={(e) => setFilterDate(e.target.value)}
+                        className="w-auto bg-slate-900/50"
+                    />
+                    {filterDate && (
+                        <Button variant="outline" onClick={() => setFilterDate('')} className="text-slate-400 hover:text-slate-200">
+                            Limpar
+                        </Button>
+                    )}
                 </div>
             </div>
 
@@ -91,13 +106,14 @@ export default function Customers() {
                             <TableHead>NIF</TableHead>
                             <TableHead>Telefone</TableHead>
                             <TableHead>Email</TableHead>
+                            <TableHead>Data de Registo</TableHead>
                             <TableHead className="text-right">Ações</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {filteredCustomers.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={5} className="text-center py-8 text-slate-400">
+                                <TableCell colSpan={6} className="text-center py-8 text-slate-400">
                                     Nenhum cliente encontrado.
                                 </TableCell>
                             </TableRow>
@@ -108,6 +124,12 @@ export default function Customers() {
                                     <TableCell>{customer.tax_id}</TableCell>
                                     <TableCell>{customer.phone}</TableCell>
                                     <TableCell>{customer.email}</TableCell>
+                                    <TableCell>
+                                        {customer.created_at ? new Date(customer.created_at).toLocaleString('pt-PT', { 
+                                            day: '2-digit', month: '2-digit', year: 'numeric', 
+                                            hour: '2-digit', minute: '2-digit' 
+                                        }) : '--'}
+                                    </TableCell>
                                     <TableCell className="text-right">
                                         <Button variant="ghost" size="icon" onClick={() => openProfileModal(customer)}>
                                             <Eye className="h-4 w-4 text-slate-400 hover:text-blue-500" />
