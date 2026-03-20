@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
-import { Search, Plus, Edit2, Trash2, X, Eye, User, History, Euro, Clock, CheckCircle2, ExternalLink } from 'lucide-react';
+import { Search, Plus, Edit2, Trash2, X, Eye, User, History, Euro, Clock, CheckCircle2, ExternalLink, RotateCw } from 'lucide-react';
 import { useGlobalCustomers } from '../data/mockDatabase';
 import type { Customer } from '../data/mockDatabase';
 import { ClientModal } from '../components/ClientModal';
@@ -21,6 +21,7 @@ export default function Customers() {
     const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
     const [selectedProfile, setSelectedProfile] = useState<Customer | null>(null);
     const [activeTab, setActiveTab] = useState<'details' | 'history'>('details');
+    const [rotation, setRotation] = useState<number>(0);
 
     // Mock History State (Global for simulation)
     const [mockRentalsDataset] = useState([
@@ -54,6 +55,7 @@ export default function Customers() {
     }
 
     function openProfileModal(customer: Customer) {
+        setRotation(0);
         setSelectedProfile(customer);
         setActiveTab('details');
         setIsProfileModalOpen(true);
@@ -220,23 +222,33 @@ export default function Customers() {
                                         <div className="pt-4 border-t border-slate-800 space-y-3">
                                             <div className="flex items-center justify-between">
                                                 <p className="text-sm font-medium text-slate-500">Foto do Documento</p>
-                                                <a 
-                                                    href={selectedProfile.document_photo_url} 
-                                                    target="_blank" 
-                                                    rel="noopener noreferrer"
-                                                >
-                                                    <Button variant="outline" size="sm" className="text-blue-400 border-blue-500/30 hover:bg-blue-500/10 h-8">
-                                                        <ExternalLink className="w-4 h-4 mr-2" />
-                                                        Abrir em Nova Aba
+                                                <div className="flex items-center gap-2">
+                                                    <Button 
+                                                        variant="outline" 
+                                                        size="sm" 
+                                                        className="text-amber-500 border-amber-500/30 hover:bg-amber-500/10 h-8"
+                                                        onClick={() => setRotation(r => r + 90)}
+                                                    >
+                                                        <RotateCw className="w-4 h-4 mr-1.5" /> Girar 90°
                                                     </Button>
-                                                </a>
+                                                    <a 
+                                                        href={selectedProfile.document_photo_url} 
+                                                        target="_blank" 
+                                                        rel="noopener noreferrer"
+                                                    >
+                                                        <Button variant="outline" size="sm" className="text-blue-400 border-blue-500/30 hover:bg-blue-500/10 h-8">
+                                                            <ExternalLink className="w-4 h-4 mr-1.5" />
+                                                            Abrir Nova Aba
+                                                        </Button>
+                                                    </a>
+                                                </div>
                                             </div>
-                                            <div className="rounded-lg overflow-hidden border border-slate-700 bg-slate-800/50 flex justify-center p-2">
+                                            <div className="rounded-lg overflow-hidden border border-slate-700 bg-black flex justify-center items-center p-2 min-h-[300px]">
                                                 <img 
                                                     src={selectedProfile.document_photo_url} 
                                                     alt="Documento do Cliente" 
-                                                    className="w-full h-auto max-h-[400px] object-contain rounded"
-                                                    style={{ maxWidth: '100%' }}
+                                                    className="w-full h-auto max-h-[400px] object-contain rounded transition-transform duration-300"
+                                                    style={{ maxWidth: '100%', transform: `rotate(${rotation}deg)` }}
                                                 />
                                             </div>
                                         </div>

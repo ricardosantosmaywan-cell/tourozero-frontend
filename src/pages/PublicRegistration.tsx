@@ -206,8 +206,14 @@ export default function PublicRegistration() {
                         <div className="space-y-4 pt-4">
                             <h3 className="text-lg font-semibold text-slate-200 border-b border-slate-800 pb-2">Documentação</h3>
                             
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium text-slate-300 block">Foto do C. Cidadão / Passaporte *</label>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="text-sm font-medium text-slate-300 block mb-1">Foto do C. Cidadão / Passaporte *</label>
+                                    <p className="text-xs text-amber-500 bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-md flex items-center gap-2">
+                                        <ShieldCheck className="w-4 h-4 shrink-0" />
+                                        Por favor, tire a foto com o telemóvel na horizontal (deitado) para capturar o documento inteiro.
+                                    </p>
+                                </div>
                                 <div className="flex items-center justify-center w-full">
                                     <label htmlFor="dropzone-file" className="flex flex-col items-center justify-center w-full h-32 border-2 border-slate-700 border-dashed rounded-xl cursor-pointer bg-slate-900/40 hover:bg-slate-800/50 hover:border-amber-500/50 transition-colors">
                                         <div className="flex flex-col items-center justify-center pt-5 pb-6">
