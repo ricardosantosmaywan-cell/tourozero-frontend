@@ -26,6 +26,8 @@ export function BookingModal({ isOpen, onClose, rentalToEdit }: BookingModalProp
     const [selectedProducts, setSelectedProducts] = useState<{ product: any, quantity: number }[]>([]);
     const [selectedProductId, setSelectedProductId] = useState<string>('');
     const [manualTotal, setManualTotal] = useState<number>(0);
+    const [transportFee, setTransportFee] = useState<number>(0);
+    const [depositFee, setDepositFee] = useState<number>(0);
     const [durationWeeks, setDurationWeeks] = useState<number | ''>(1);
     const [deliveryAddress, setDeliveryAddress] = useState('');
     const [showSuccessToast, setShowSuccessToast] = useState(false);
@@ -50,10 +52,11 @@ export function BookingModal({ isOpen, onClose, rentalToEdit }: BookingModalProp
                     quantity: it.quantity
                 }));
                 setSelectedProducts(mappedProducts);
-            } else {
                 setSelectedProducts([]);
             }
-            setManualTotal(rentalToEdit.total_value || 0);
+            setManualTotal(rentalToEdit.total_value ? rentalToEdit.total_value - (rentalToEdit.transport_fee || 0) : 0);
+            setTransportFee(rentalToEdit.transport_fee || 0);
+            setDepositFee(rentalToEdit.deposit_fee || 0);
         } else {
             // "todos os campos iniciem vazios"
             resetState();
@@ -68,6 +71,8 @@ export function BookingModal({ isOpen, onClose, rentalToEdit }: BookingModalProp
         setSelectedProducts([]);
         setSelectedProductId('');
         setManualTotal(0);
+        setTransportFee(0);
+        setDepositFee(0);
         setShowCustomerForm(false);
         setNewCustomerData({ full_name: '', phone: '', address: '', tax_id: '', email: '', document_id: '' });
         setFormError('');
@@ -161,7 +166,7 @@ export function BookingModal({ isOpen, onClose, rentalToEdit }: BookingModalProp
         }
 
         const finalSemanas = (typeof durationWeeks === 'number' && durationWeeks > 0) ? durationWeeks : 0;
-        const totalPayload = manualTotal;
+        const totalPayload = (typeof manualTotal === 'number' ? manualTotal : 0) + (typeof transportFee === 'number' ? transportFee : 0);
 
         const payload = {
             customers: customerToUse,
@@ -170,6 +175,8 @@ export function BookingModal({ isOpen, onClose, rentalToEdit }: BookingModalProp
             semanas: finalSemanas,
             delivery_address: deliveryAddress,
             total_value: totalPayload,
+            transport_fee: transportFee || 0,
+            deposit_fee: depositFee || 0,
             status: rentalToEdit ? rentalToEdit.status : 'active',
             itemsCount: finalProducts.reduce((sum, sp) => sum + sp.quantity, 0),
             items: finalProducts.map(sp => ({
@@ -378,18 +385,65 @@ export function BookingModal({ isOpen, onClose, rentalToEdit }: BookingModalProp
                         </div>
                     </div>
 
-                    <div className="p-4 border border-slate-800 rounded-lg bg-slate-950 flex flex-col items-end">
-                        <div className="w-full flex items-center justify-between">
-                            <span className="text-sm font-medium text-slate-300">Valor Total do Agendamento (€) *</span>
-                            <Input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={manualTotal || ''}
-                                onChange={(e) => setManualTotal(parseFloat(e.target.value) || 0)}
-                                className="w-32 text-right font-bold text-amber-500 text-lg border-amber-500/50 bg-slate-900 focus:ring-amber-500"
-                                required
-                            />
+                    <div className="p-4 border border-slate-800 rounded-lg bg-slate-950 flex flex-col gap-4">
+                        <h3 className="text-sm font-semibold text-amber-500">3. Financeiro e Garantias</h3>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-300 mb-1">Subtotal (Produtos) €</label>
+                                <Input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={manualTotal === 0 && !rentalToEdit ? '' : manualTotal}
+                                    onChange={(e) => setManualTotal(parseFloat(e.target.value) || 0)}
+                                    className="w-full border-slate-700 bg-slate-900 focus:ring-amber-500"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-300 mb-1">Valor do Transporte €</label>
+                                <Input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={transportFee === 0 && !rentalToEdit ? '' : transportFee}
+                                    onChange={(e) => setTransportFee(parseFloat(e.target.value) || 0)}
+                                    className="w-full border-slate-700 bg-slate-900 focus:ring-amber-500"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-300 mb-1">Valor do Caução €</label>
+                                <Input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={depositFee === 0 && !rentalToEdit ? '' : depositFee}
+                                    onChange={(e) => setDepositFee(parseFloat(e.target.value) || 0)}
+                                    className="w-full border-slate-700 bg-slate-900 focus:ring-emerald-500"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="w-full mt-2 pt-4 border-t border-slate-800 flex flex-col items-end gap-1">
+                            <div className="flex justify-between w-64 text-sm text-slate-400">
+                                <span>Subtotal (Produtos):</span>
+                                <span>{manualTotal.toFixed(2)} €</span>
+                            </div>
+                            <div className="flex justify-between w-64 text-sm text-slate-400 mb-2">
+                                <span>Transporte:</span>
+                                <span>{transportFee.toFixed(2)} €</span>
+                            </div>
+                            <div className="flex justify-between w-64 font-bold text-lg text-amber-500">
+                                <span>Total a Pagar:</span>
+                                <span>{(manualTotal + transportFee).toFixed(2)} €</span>
+                            </div>
+                            {depositFee > 0 && (
+                                <div className="flex justify-between w-64 text-sm text-emerald-400 font-medium mt-1">
+                                    <span>Caução (Garantia):</span>
+                                    <span>{depositFee.toFixed(2)} €</span>
+                                </div>
+                            )}
                         </div>
                     </div>
 

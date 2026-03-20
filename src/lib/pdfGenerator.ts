@@ -60,6 +60,10 @@ export function generateRentalContract(rental: Rental) {
         item.quantity.toString()
     ]);
 
+    if (rental.transport_fee && rental.transport_fee > 0) {
+        tableData.push(['Serviço de Transporte', '1']);
+    }
+
     autoTable(doc, {
         startY: startYRental + 15,
         head: [['Material', 'Qtd']],
@@ -92,9 +96,14 @@ export function generateRentalContract(rental: Rental) {
     doc.setFontSize(12);
     doc.text(`TOTAL ALUGUER: ${Number(rental.total_value).toFixed(2)} €`, pageWidth - 14, finalY + 10, { align: 'right' });
 
+    if (rental.deposit_fee && rental.deposit_fee > 0) {
+        doc.setFont('helvetica', 'italic');
+        doc.setFontSize(10);
+        doc.text(`Caução de ${Number(rental.deposit_fee).toFixed(2)}€ recebido como garantia e a devolver após verificação do material.`, pageWidth - 14, finalY + 18, { align: 'right' });
+    }
 
     // --- DATA DE EMISSÃO E ASSINATURAS ---
-    const signatureY = finalY + 40;
+    const signatureY = finalY + 45;
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);

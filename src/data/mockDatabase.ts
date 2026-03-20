@@ -47,6 +47,8 @@ export interface Rental {
     semanas?: number;
     delivery_address?: string;
     observacoes?: string;
+    transport_fee?: number;
+    deposit_fee?: number;
     itemsCount: number;
     items: RentalItem[];
     created_at?: string;
@@ -216,6 +218,8 @@ export function useGlobalRentals() {
                 semanas: r.semanas,
                 delivery_address: r.delivery_address,
                 observacoes: r.observacoes,
+                transport_fee: r.transport_fee || 0,
+                deposit_fee: r.deposit_fee || 0,
                 created_at: r.created_at,
                 itemsCount: r.rental_items ? r.rental_items.reduce((sum: number, it: any) => sum + it.quantity, 0) : 0,
                 items: r.rental_items ? r.rental_items.map((it: any) => ({
@@ -245,7 +249,9 @@ export function useGlobalRentals() {
                 status: newRentalData.status || 'active',
                 semanas: newRentalData.semanas,
                 delivery_address: newRentalData.delivery_address,
-                observacoes: newRentalData.observacoes
+                observacoes: newRentalData.observacoes,
+                transport_fee: newRentalData.transport_fee || 0,
+                deposit_fee: newRentalData.deposit_fee || 0
             };
 
             const { data: insertedRental, error: rentalError } = await supabase.from('rentals').insert([rentalPayload]).select().single();
@@ -310,7 +316,9 @@ export function useGlobalRentals() {
                 status: updatedData.status,
                 semanas: updatedData.semanas,
                 delivery_address: updatedData.delivery_address,
-                observacoes: updatedData.observacoes
+                observacoes: updatedData.observacoes,
+                transport_fee: updatedData.transport_fee || 0,
+                deposit_fee: updatedData.deposit_fee || 0
             };
             if (updatedData.customers?.id || updatedData.customer_id) {
                 (rentalPayload as any).customer_id = updatedData.customers?.id || updatedData.customer_id;
