@@ -60,10 +60,6 @@ export function generateRentalContract(rental: Rental) {
         item.quantity.toString()
     ]);
 
-    if (rental.transport_fee && rental.transport_fee > 0) {
-        tableData.push(['Serviço de Transporte', '1']);
-    }
-
     autoTable(doc, {
         startY: startYRental + 15,
         head: [['Material', 'Qtd']],
@@ -92,18 +88,42 @@ export function generateRentalContract(rental: Rental) {
     // cast pois na declaração do jspdf autoTable "lastAutoTable" entra como propriedade estendida
     const finalY = (doc as any).lastAutoTable.finalY || startYRental + 30;
 
+    const subtotal = Number(rental.total_value) - Number(rental.transport_fee || 0) - Number(rental.deposit_fee || 0);
+    const transport = Number(rental.transport_fee || 0);
+    const deposit = Number(rental.deposit_fee || 0);
+    const total = Number(rental.total_value);
+
+    let currentY = finalY + 10;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    
+    doc.text(`Valor dos Materiais: ${subtotal.toFixed(2)} €`, pageWidth - 14, currentY, { align: 'right' });
+    currentY += 6;
+    
+    if (transport > 0) {
+        doc.text(`Serviço de Transporte: ${transport.toFixed(2)} €`, pageWidth - 14, currentY, { align: 'right' });
+        currentY += 6;
+    }
+    
+    if (deposit > 0) {
+        doc.text(`Valor de Caução (Garantia Reembolsável): ${deposit.toFixed(2)} €`, pageWidth - 14, currentY, { align: 'right' });
+        currentY += 6;
+    }
+    
+    currentY += 4;
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(12);
-    doc.text(`TOTAL ALUGUER: ${Number(rental.total_value).toFixed(2)} €`, pageWidth - 14, finalY + 10, { align: 'right' });
+    doc.text(`TOTAL A PAGAR NO ATO: ${total.toFixed(2)} €`, pageWidth - 14, currentY, { align: 'right' });
 
-    if (rental.deposit_fee && rental.deposit_fee > 0) {
+    if (deposit > 0) {
+        currentY += 12;
         doc.setFont('helvetica', 'italic');
-        doc.setFontSize(10);
-        doc.text(`Caução de ${Number(rental.deposit_fee).toFixed(2)}€ recebido como garantia e a devolver após verificação do material.`, pageWidth - 14, finalY + 18, { align: 'right' });
+        doc.setFontSize(9);
+        doc.text(`* O valor de ${deposit.toFixed(2)} € referente ao caução será restituído ao cliente após a conferência e devolução dos materiais em bom estado.`, 14, currentY, { maxWidth: pageWidth - 28 });
     }
 
     // --- DATA DE EMISSÃO E ASSINATURAS ---
-    const signatureY = finalY + 45;
+    const signatureY = currentY + 30;
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);

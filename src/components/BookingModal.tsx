@@ -54,7 +54,7 @@ export function BookingModal({ isOpen, onClose, rentalToEdit }: BookingModalProp
                 setSelectedProducts(mappedProducts);
                 setSelectedProducts([]);
             }
-            setManualTotal(rentalToEdit.total_value ? rentalToEdit.total_value - (rentalToEdit.transport_fee || 0) : 0);
+            setManualTotal(rentalToEdit.total_value ? rentalToEdit.total_value - (rentalToEdit.transport_fee || 0) - (rentalToEdit.deposit_fee || 0) : 0);
             setTransportFee(rentalToEdit.transport_fee || 0);
             setDepositFee(rentalToEdit.deposit_fee || 0);
         } else {
@@ -166,7 +166,7 @@ export function BookingModal({ isOpen, onClose, rentalToEdit }: BookingModalProp
         }
 
         const finalSemanas = (typeof durationWeeks === 'number' && durationWeeks > 0) ? durationWeeks : 0;
-        const totalPayload = (typeof manualTotal === 'number' ? manualTotal : 0) + (typeof transportFee === 'number' ? transportFee : 0);
+        const totalPayload = (typeof manualTotal === 'number' ? manualTotal : 0) + (typeof transportFee === 'number' ? transportFee : 0) + (typeof depositFee === 'number' ? depositFee : 0);
 
         const payload = {
             customers: customerToUse,
@@ -430,20 +430,18 @@ export function BookingModal({ isOpen, onClose, rentalToEdit }: BookingModalProp
                                 <span>Subtotal (Produtos):</span>
                                 <span>{manualTotal.toFixed(2)} €</span>
                             </div>
-                            <div className="flex justify-between w-64 text-sm text-slate-400 mb-2">
+                            <div className="flex justify-between w-64 text-sm text-slate-400">
                                 <span>Transporte:</span>
                                 <span>{transportFee.toFixed(2)} €</span>
                             </div>
-                            <div className="flex justify-between w-64 font-bold text-lg text-amber-500">
-                                <span>Total a Pagar:</span>
-                                <span>{(manualTotal + transportFee).toFixed(2)} €</span>
+                            <div className="flex justify-between w-64 text-sm text-emerald-400 font-medium mb-2">
+                                <span>Caução (Garantia):</span>
+                                <span>{depositFee.toFixed(2)} €</span>
                             </div>
-                            {depositFee > 0 && (
-                                <div className="flex justify-between w-64 text-sm text-emerald-400 font-medium mt-1">
-                                    <span>Caução (Garantia):</span>
-                                    <span>{depositFee.toFixed(2)} €</span>
-                                </div>
-                            )}
+                            <div className="flex justify-between w-64 font-bold text-lg text-amber-500 border-t border-slate-800 pt-2">
+                                <span>Total a Pagar:</span>
+                                <span>{(manualTotal + transportFee + depositFee).toFixed(2)} €</span>
+                            </div>
                         </div>
                     </div>
 
