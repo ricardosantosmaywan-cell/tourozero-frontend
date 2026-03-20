@@ -75,9 +75,9 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
                     <LogOut className="w-5 h-5" />
                     Sair
                 </button>
-                <div className="mt-4 pt-2 border-t border-slate-800/50 text-center">
-                    <p className="text-[10px] text-slate-500/70 tracking-wide font-medium">
-                        Desenvolvido por Ricardo Pereira
+                <div className="mt-4 pt-3 border-t border-slate-800/50 text-center">
+                    <p className="text-xs text-slate-400/60 tracking-wide">
+                        &copy; 2026 Tourozero Engine | Powered by <span className="font-bold text-slate-300/80">Maywan</span>
                     </p>
                 </div>
             </div>
