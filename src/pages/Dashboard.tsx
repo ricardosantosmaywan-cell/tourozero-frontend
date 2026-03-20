@@ -179,8 +179,56 @@ export default function Dashboard() {
                 </Card>
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-12">
-                <div className="lg:col-span-8 xl:col-span-9 space-y-4">
+            <div className="grid gap-6 md:grid-cols-2 mb-8">
+                <div className="space-y-4">
+                    <h2 className="text-xl font-semibold tracking-tight text-slate-50">Evolução Receitas</h2>
+                    <Card className="bg-slate-900 border-slate-800">
+                        <CardContent className="p-4 h-[220px]">
+                            {chartData.length > 0 ? (
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                                        <XAxis dataKey="name" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
+                                        <YAxis stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => `${val}€`} />
+                                        <Tooltip
+                                            cursor={{ fill: '#0f172a' }}
+                                            contentStyle={{ backgroundColor: '#020617', borderColor: '#1e293b', borderRadius: '8px', color: '#f8fafc' }}
+                                            itemStyle={{ color: '#10b981', fontWeight: 'bold' }}
+                                        />
+                                        <Bar dataKey="Faturamento" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            ) : (
+                                <div className="h-full w-full flex items-center justify-center text-slate-500">Sem dados analíticos</div>
+                            )}
+                        </CardContent>
+                    </Card>
+                </div>
+                <div className="space-y-4">
+                    <h2 className="text-xl font-semibold tracking-tight text-slate-50">Ações Rápidas</h2>
+                    <Card className="bg-slate-900 border-slate-800 h-[220px]">
+                        <CardContent className="p-5 flex flex-col justify-center gap-4 h-full">
+                            <Button className="w-full justify-start h-12" variant="default" onClick={() => {
+                                setBookingRentalToEdit(null);
+                                setIsBookingModalOpen(true);
+                            }}>
+                                <Plus className="mr-3 h-5 w-5" />
+                                Novo Agendamento
+                            </Button>
+                            <Button className="w-full justify-start h-12 bg-slate-800 hover:bg-slate-700 text-slate-50" variant="secondary" onClick={() => setIsClientModalOpen(true)}>
+                                <Users className="mr-3 h-5 w-5 text-amber-500" />
+                                Nova Ficha de Cliente
+                            </Button>
+                            <Button className="w-full justify-start h-12 bg-slate-800 hover:bg-slate-700 text-slate-50" variant="secondary" onClick={() => navigate('/inventory')}>
+                                <Package className="mr-3 h-5 w-5 text-blue-400" />
+                                Cadastrar Produto
+                            </Button>
+                        </CardContent>
+                    </Card>
+                </div>
+            </div>
+
+            <div className="space-y-4">
                     {/* Controles de Tabela */}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <h2 className="text-xl font-semibold tracking-tight text-slate-50">Alugueres Ativos</h2>
@@ -225,6 +273,7 @@ export default function Dashboard() {
                                     <TableHead className="w-[15%] min-w-[120px]">Entrega</TableHead>
                                     <TableHead className="w-[20%] min-w-[130px]">Status</TableHead>
                                     <TableHead className="w-[15%] min-w-[120px]">Valor (€)</TableHead>
+                                    <TableHead className="w-[10%] min-w-[100px]">Pagamento</TableHead>
                                     <TableHead className="w-[20%] text-right whitespace-nowrap min-w-[420px]">Ação</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -256,7 +305,32 @@ export default function Dashboard() {
                                                 <TableCell className="font-semibold text-emerald-400">
                                                     {(Number(rental.total_amount || 0) - Number(rental.deposit_value || 0) - Number(rental.transport_value || 0)).toFixed(2)} €
                                                 </TableCell>
+                                                <TableCell>
+                                                    {rental.payment_status === 'paid' ? (
+                                                        <span className="inline-flex items-center px-2 py-1 rounded text-xs font-semibold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                                                            Pago
+                                                        </span>
+                                                    ) : (
+                                                        <span className="inline-flex items-center px-2 py-1 rounded text-xs font-semibold bg-red-500/10 text-red-500 border border-red-500/20">
+                                                            Pendente
+                                                        </span>
+                                                    )}
+                                                </TableCell>
                                                 <TableCell className="text-right flex items-center justify-end gap-2">
+                                                    {rental.payment_status !== 'paid' && (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10 border border-transparent hover:border-emerald-500/20"
+                                                            onClick={async () => {
+                                                                if (window.confirm('Confirmar pagamento deste aluguer?')) {
+                                                                    await updateRental(rental.id, { payment_status: 'paid' });
+                                                                }
+                                                            }}
+                                                        >
+                                                            <CheckCircle2 className="w-4 h-4 mr-1.5" /> Pago
+                                                        </Button>
+                                                    )}
                                                     <Button
                                                         variant="ghost"
                                                         size="sm"
@@ -307,58 +381,11 @@ export default function Dashboard() {
                                     <TableCell className="font-bold text-emerald-400">
                                         {displayRentals.reduce((acc, r) => acc + (Number(r.total_amount || 0) - Number(r.deposit_value || 0) - Number(r.transport_value || 0)), 0).toFixed(2)} €
                                     </TableCell>
-                                    <TableCell></TableCell>
+                                    <TableCell colSpan={2}></TableCell>
                                 </TableRow>
                             </TableFooter>
                         </Table>
                     </div>
-                </div>
-
-                <div className="lg:col-span-4 xl:col-span-3 space-y-4">
-                    <h2 className="text-xl font-semibold tracking-tight text-slate-50">Evolução Receitas</h2>
-                    <Card className="bg-slate-900 border-slate-800">
-                        <CardContent className="p-4 h-[220px]">
-                            {chartData.length > 0 ? (
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                                        <XAxis dataKey="name" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
-                                        <YAxis stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => `${val}€`} />
-                                        <Tooltip
-                                            cursor={{ fill: '#0f172a' }}
-                                            contentStyle={{ backgroundColor: '#020617', borderColor: '#1e293b', borderRadius: '8px', color: '#f8fafc' }}
-                                            itemStyle={{ color: '#10b981', fontWeight: 'bold' }}
-                                        />
-                                        <Bar dataKey="Faturamento" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={40} />
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            ) : (
-                                <div className="h-full w-full flex items-center justify-center text-slate-500">Sem dados analíticos</div>
-                            )}
-                        </CardContent>
-                    </Card>
-
-                    <h2 className="text-xl font-semibold tracking-tight text-slate-50 mt-6 pt-2">Ações Rápidas</h2>
-                    <Card className="bg-slate-900 border-slate-800">
-                        <CardContent className="p-6 flex flex-col gap-4">
-                            <Button className="w-full justify-start h-12" variant="default" onClick={() => {
-                                setBookingRentalToEdit(null);
-                                setIsBookingModalOpen(true);
-                            }}>
-                                <Plus className="mr-3 h-5 w-5" />
-                                Novo Agendamento
-                            </Button>
-                            <Button className="w-full justify-start h-12 bg-slate-800 hover:bg-slate-700 text-slate-50" variant="secondary" onClick={() => setIsClientModalOpen(true)}>
-                                <Users className="mr-3 h-5 w-5 text-amber-500" />
-                                Nova Ficha de Cliente
-                            </Button>
-                            <Button className="w-full justify-start h-12 bg-slate-800 hover:bg-slate-700 text-slate-50" variant="secondary" onClick={() => navigate('/inventory')}>
-                                <Package className="mr-3 h-5 w-5 text-blue-400" />
-                                Cadastrar Produto
-                            </Button>
-                        </CardContent>
-                    </Card>
-                </div>
             </div>
 
             {/* Modal Global de Novo / Edição Agendamento */}
