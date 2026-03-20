@@ -93,30 +93,39 @@ export function generateRentalContract(rental: Rental) {
     const deposit = Number(rental.deposit_value || 0);
     const total = Number(rental.total_amount);
 
-    let currentY = finalY + 10;
+    let currentY = finalY + 20;
+    
+    // Configurar bloco de resumo financeiro do lado direito
+    const labelX = pageWidth / 2 + 10;
+    const valueX = pageWidth - 14;
+
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
     
-    doc.text(`Valor dos Materiais: ${subtotal.toFixed(2)} €`, pageWidth - 14, currentY, { align: 'right' });
-    currentY += 6;
+    doc.text('Valor dos Materiais:', labelX, currentY);
+    doc.text(`${subtotal.toFixed(2)} €`, valueX, currentY, { align: 'right' });
+    currentY += 7;
     
     if (transport > 0) {
-        doc.text(`Serviço de Transporte: ${transport.toFixed(2)} €`, pageWidth - 14, currentY, { align: 'right' });
-        currentY += 6;
+        doc.text('Serviço de Transporte:', labelX, currentY);
+        doc.text(`${transport.toFixed(2)} €`, valueX, currentY, { align: 'right' });
+        currentY += 7;
     }
     
     if (deposit > 0) {
-        doc.text(`Valor de Caução (Garantia Reembolsável): ${deposit.toFixed(2)} €`, pageWidth - 14, currentY, { align: 'right' });
-        currentY += 6;
+        doc.text('Valor de Caução (Garantia):', labelX, currentY);
+        doc.text(`${deposit.toFixed(2)} €`, valueX, currentY, { align: 'right' });
+        currentY += 7;
     }
     
-    currentY += 4;
+    currentY += 5;
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(12);
-    doc.text(`TOTAL A PAGAR NO ATO: ${total.toFixed(2)} €`, pageWidth - 14, currentY, { align: 'right' });
+    doc.text('TOTAL A PAGAR NO ATO:', labelX, currentY);
+    doc.text(`${total.toFixed(2)} €`, valueX, currentY, { align: 'right' });
 
     if (deposit > 0) {
-        currentY += 12;
+        currentY += 18;
         doc.setFont('helvetica', 'italic');
         doc.setFontSize(9);
         doc.text(`* O valor de ${deposit.toFixed(2)} € referente ao caução será restituído ao cliente após a conferência e devolução dos materiais em bom estado.`, 14, currentY, { maxWidth: pageWidth - 28 });
