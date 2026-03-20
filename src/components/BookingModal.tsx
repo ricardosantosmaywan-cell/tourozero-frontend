@@ -30,6 +30,7 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
     const [transportFee, setTransportFee] = useState<number>(0);
     const [depositFee, setDepositFee] = useState<number>(0);
     const [durationWeeks, setDurationWeeks] = useState<number | ''>(1);
+    const [paymentStatus, setPaymentStatus] = useState<'pending' | 'paid'>('pending');
     const [deliveryAddress, setDeliveryAddress] = useState('');
     const [showSuccessToast, setShowSuccessToast] = useState(false);
 
@@ -58,6 +59,7 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
             setManualTotal(rentalToEdit.total_amount ? rentalToEdit.total_amount - (rentalToEdit.transport_value || 0) - (rentalToEdit.deposit_value || 0) : 0);
             setTransportFee(rentalToEdit.transport_value || 0);
             setDepositFee(rentalToEdit.deposit_value || 0);
+            setPaymentStatus(rentalToEdit.payment_status || 'pending');
         } else {
             // "todos os campos iniciem vazios"
             resetState();
@@ -74,6 +76,7 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
         setManualTotal(0);
         setTransportFee(0);
         setDepositFee(0);
+        setPaymentStatus('pending');
         setShowCustomerForm(false);
         setNewCustomerData({ full_name: '', phone: '', address: '', tax_id: '', email: '', document_id: '' });
         setFormError('');
@@ -178,6 +181,7 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
             total_amount: totalPayload,
             transport_value: transportFee || 0,
             deposit_value: depositFee || 0,
+            payment_status: paymentStatus,
             status: rentalToEdit ? rentalToEdit.status : 'active',
             itemsCount: finalProducts.reduce((sum, sp) => sum + sp.quantity, 0),
             items: finalProducts.map(sp => ({
@@ -395,7 +399,7 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
                     <div className="p-4 border border-slate-800 rounded-lg bg-slate-950 flex flex-col gap-4">
                         <h3 className="text-sm font-semibold text-amber-500">3. Financeiro e Garantias</h3>
                         
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-slate-300 mb-1">Subtotal (Produtos) €</label>
                                 <Input
@@ -429,6 +433,17 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
                                     onChange={(e) => setDepositFee(parseFloat(e.target.value) || 0)}
                                     className="w-full border-slate-700 bg-slate-900 focus:ring-emerald-500"
                                 />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-300 mb-1">Pagamento no Ato?</label>
+                                <select
+                                    value={paymentStatus}
+                                    onChange={(e) => setPaymentStatus(e.target.value as any)}
+                                    className="w-full h-10 px-3 bg-slate-900 border border-slate-700 text-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-500"
+                                >
+                                    <option value="pending">Não (Pendente)</option>
+                                    <option value="paid">Sim (Pago)</option>
+                                </select>
                             </div>
                         </div>
 

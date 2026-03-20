@@ -74,6 +74,11 @@ export function generateRentalContract(rental: Rental) {
     doc.text(`Data de Recolha: ${new Date(rental.pickup_date).toLocaleDateString('pt-BR')}`, 14, startYRental + 8);
     doc.text(`Data Prevista de Entrega: ${new Date(rental.return_date).toLocaleDateString('pt-BR')}`, pageWidth / 2, startYRental + 8);
 
+    doc.setFont('helvetica', 'bold');
+    doc.text('Estado do Pagamento: ', 14, startYRental + 15);
+    doc.setFont('helvetica', 'normal');
+    doc.text(rental.payment_status === 'paid' ? 'Pago' : 'Pendente', 14 + doc.getTextWidth('Estado do Pagamento: '), startYRental + 15);
+
     // --- TABELA DE ITENS ---
     const tableData = rental.items.map(item => [
         item.name,

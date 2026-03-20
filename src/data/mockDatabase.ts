@@ -49,6 +49,7 @@ export interface Rental {
     observacoes?: string;
     transport_value?: number;
     deposit_value?: number;
+    payment_status?: 'pending' | 'paid';
     itemsCount: number;
     items: RentalItem[];
     created_at?: string;
@@ -220,6 +221,7 @@ export function useGlobalRentals() {
                 observacoes: r.observacoes,
                 transport_value: r.transport_value || 0,
                 deposit_value: r.deposit_value || 0,
+                payment_status: r.payment_status || 'pending',
                 created_at: r.created_at,
                 itemsCount: r.rental_items ? r.rental_items.reduce((sum: number, it: any) => sum + it.quantity, 0) : 0,
                 items: r.rental_items ? r.rental_items.map((it: any) => ({
@@ -251,7 +253,8 @@ export function useGlobalRentals() {
                 delivery_address: newRentalData.delivery_address,
                 observacoes: newRentalData.observacoes,
                 transport_value: newRentalData.transport_value || 0,
-                deposit_value: newRentalData.deposit_value || 0
+                deposit_value: newRentalData.deposit_value || 0,
+                payment_status: newRentalData.payment_status || 'pending'
             };
 
             const { data: insertedRental, error: rentalError } = await supabase.from('rentals').insert([rentalPayload]).select().single();
@@ -318,7 +321,8 @@ export function useGlobalRentals() {
                 delivery_address: updatedData.delivery_address,
                 observacoes: updatedData.observacoes,
                 transport_value: updatedData.transport_value || 0,
-                deposit_value: updatedData.deposit_value || 0
+                deposit_value: updatedData.deposit_value || 0,
+                payment_status: updatedData.payment_status || 'pending'
             };
             if (updatedData.customers?.id || updatedData.customer_id) {
                 (rentalPayload as any).customer_id = updatedData.customers?.id || updatedData.customer_id;
@@ -383,11 +387,23 @@ export function useGlobalRentals() {
         }
     }
 
+    const updatePaymentStatus = async (id: string, newStatus: 'pending' | 'paid') => {
+        try {
+            const { error } = await supabase.from('rentals').update({ payment_status: newStatus }).eq('id', id);
+            if (error) throw new Error(error.message);
+            await fetchRentals();
+        } catch (e: any) {
+            console.error('Erro ao atualizar status do pagamento:', e);
+            throw new Error(e.message);
+        }
+    };
+
     return {
         rentals,
         addRental,
         updateRental,
         deleteRental,
+        updatePaymentStatus,
         refreshRentals: fetchRentals
     };
 }

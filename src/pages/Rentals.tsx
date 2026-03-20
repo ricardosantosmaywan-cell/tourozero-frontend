@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, ChevronLeft, ChevronRight, Eye, Edit2, Trash2, FileText } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, Eye, Edit2, Trash2, FileText, CircleDollarSign, Clock } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
@@ -10,7 +10,14 @@ import { ViewRentalModal } from '../components/ViewRentalModal';
 
 export default function Rentals() {
     // Integração Directa à Base Central Mock
-    const { rentals, deleteRental, refreshRentals } = useGlobalRentals();
+    const { rentals, deleteRental, refreshRentals, updatePaymentStatus } = useGlobalRentals();
+
+    const handleTogglePayment = async (id: string, currentStatus: string) => {
+        const title = currentStatus === 'paid' ? 'Desmarcar pagamento deste aluguer?' : 'Confirmar pagamento deste aluguer?';
+        if (window.confirm(title)) {
+            await updatePaymentStatus(id, currentStatus === 'paid' ? 'pending' : 'paid');
+        }
+    };
 
     // Remover o loading já que os dados vêm imediatamente em memória
     const [searchTerm, setSearchTerm] = useState('');
@@ -86,6 +93,7 @@ export default function Rentals() {
                             <TableHead>Recolha</TableHead>
                             <TableHead>Entrega</TableHead>
                             <TableHead>Status</TableHead>
+                            <TableHead>Pagamento</TableHead>
                             <TableHead>Total (€)</TableHead>
                             <TableHead className="text-right">Ação</TableHead>
                         </TableRow>
@@ -120,8 +128,22 @@ export default function Rentals() {
                                                         : 'Concluído'}
                                         </span>
                                     </TableCell>
+                                    <TableCell>
+                                        <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-semibold ${rental.payment_status === 'paid' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-500'}`}>
+                                            {rental.payment_status === 'paid' ? 'Pago' : 'Pendente'}
+                                        </span>
+                                    </TableCell>
                                     <TableCell className="font-medium">{Number(rental.total_amount).toFixed(2)} €</TableCell>
                                     <TableCell className="text-right flex items-center justify-end gap-2">
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className={`border border-transparent ${rental.payment_status === 'paid' ? 'text-amber-500 hover:text-amber-400 hover:bg-amber-500/10' : 'text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10'}`}
+                                            onClick={() => handleTogglePayment(rental.id, rental.payment_status || 'pending')}
+                                            title={rental.payment_status === 'paid' ? 'Desmarcar pagamento' : 'Confirmar pagamento'}
+                                        >
+                                            {rental.payment_status === 'paid' ? <Clock className="w-4 h-4" /> : <CircleDollarSign className="w-4 h-4" />}
+                                        </Button>
                                         <Button
                                             variant="ghost"
                                             size="sm"
