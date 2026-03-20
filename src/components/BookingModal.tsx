@@ -4,6 +4,7 @@ import { Input } from './ui/Input';
 import { X, PlusCircle, Trash, CheckCircle2 } from 'lucide-react';
 import { useGlobalRentals, useGlobalCustomers, useGlobalProducts } from '../data/mockDatabase';
 import type { Customer } from '../data/mockDatabase';
+import { supabase } from '../lib/supabase';
 
 interface BookingModalProps {
     isOpen: boolean;
@@ -54,11 +55,27 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
                     quantity: it.quantity
                 }));
                 setSelectedProducts(mappedProducts);
-                setSelectedProducts([]);
             }
-            setManualTotal(rentalToEdit.total_amount ? rentalToEdit.total_amount - (rentalToEdit.transport_value || 0) - (rentalToEdit.deposit_value || 0) : 0);
-            setTransportFee(rentalToEdit.transport_value || 0);
-            setDepositFee(rentalToEdit.deposit_value || 0);
+
+            // Sync Database values for extra fees safely
+            const loadExtraFees = async () => {
+                try {
+                    const { data } = await supabase.from('rentals').select('transport_value, deposit_value, total_amount').eq('id', rentalToEdit.id).single();
+                    if (data) {
+                        setTransportFee(data.transport_value || 0);
+                        setDepositFee(data.deposit_value || 0);
+                        setManualTotal(data.total_amount ? data.total_amount - (data.transport_value || 0) - (data.deposit_value || 0) : 0);
+                    } else {
+                        setTransportFee(rentalToEdit.transport_value || 0);
+                        setDepositFee(rentalToEdit.deposit_value || 0);
+                        setManualTotal(rentalToEdit.total_amount ? rentalToEdit.total_amount - (rentalToEdit.transport_value || 0) - (rentalToEdit.deposit_value || 0) : 0);
+                    }
+                } catch (e) {
+                    console.error("Missing fees query", e);
+                }
+            };
+            loadExtraFees();
+
             setPaymentStatus(rentalToEdit.payment_status || 'pending');
         } else {
             // "todos os campos iniciem vazios"
@@ -280,7 +297,7 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
 
                     <div className="p-4 border border-slate-800 rounded-lg bg-slate-950">
                         <h3 className="text-sm font-semibold mb-3 text-amber-500">Local de Entrega</h3>
-                        <div className="col-span-3">
+                        <div className="w-full">
                             <label className="block text-sm font-medium text-slate-300 mb-1">Endereço da Obra / Local de Entrega</label>
                             <Input
                                 type="text"

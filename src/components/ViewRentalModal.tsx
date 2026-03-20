@@ -17,6 +17,11 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
     const [notes, setNotes] = useState('');
     const [fetchedItems, setFetchedItems] = useState<any[]>([]);
     const [isLoadingItems, setIsLoadingItems] = useState(false);
+    
+    // Financial Sync States
+    const [liveTransport, setLiveTransport] = useState<number>(0);
+    const [liveDeposit, setLiveDeposit] = useState<number>(0);
+    const [liveTotal, setLiveTotal] = useState<number>(0);
 
     useEffect(() => {
         if (!isOpen || !rental) return;
@@ -26,6 +31,24 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
         const loadItems = async () => {
             setIsLoadingItems(true);
             try {
+                // Fetch Financials
+                const { data: rentData } = await supabase
+                    .from('rentals')
+                    .select('transport_value, deposit_value, total_amount')
+                    .eq('id', rental.id)
+                    .single();
+                
+                if (rentData) {
+                    setLiveTransport(rentData.transport_value || 0);
+                    setLiveDeposit(rentData.deposit_value || 0);
+                    setLiveTotal(rentData.total_amount || 0);
+                } else {
+                    setLiveTransport(rental.transport_value || 0);
+                    setLiveDeposit(rental.deposit_value || 0);
+                    setLiveTotal(rental.total_amount || 0);
+                }
+
+                // Fetch Items
                 const { data, error } = await supabase
                     .from('rental_items')
                     .select(`
@@ -151,19 +174,19 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
                             <div className="mt-4 pt-3 border-t border-slate-700/50 flex flex-col gap-1.5">
                                 <div className="flex justify-between items-center text-sm text-slate-400">
                                     <span>Valor dos Materiais:</span>
-                                    <span>{Number((rental.total_amount || 0) - (rental.transport_value || 0) - (rental.deposit_value || 0)).toFixed(2)} €</span>
+                                    <span>{Number((liveTotal || 0) - (liveTransport || 0) - (liveDeposit || 0)).toFixed(2)} €</span>
                                 </div>
                                 <div className="flex justify-between items-center text-sm text-slate-400">
                                     <span>Serviço de Transporte:</span>
-                                    <span>{Number(rental.transport_value || 0).toFixed(2)} €</span>
+                                    <span>{Number(liveTransport || 0).toFixed(2)} €</span>
                                 </div>
                                 <div className="flex justify-between items-center text-sm text-slate-400">
                                     <span>Valor de Caução (Garantia):</span>
-                                    <span>{Number(rental.deposit_value || 0).toFixed(2)} €</span>
+                                    <span>{Number(liveDeposit || 0).toFixed(2)} €</span>
                                 </div>
                                 <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-700/50">
                                     <span className="font-semibold text-slate-300">Total Efetivo a Pagar</span>
-                                    <span className="text-lg font-bold text-amber-500">{Number(rental.total_amount).toFixed(2)} €</span>
+                                    <span className="text-lg font-bold text-amber-500">{Number(liveTotal).toFixed(2)} €</span>
                                 </div>
                             </div>
                         </div>
