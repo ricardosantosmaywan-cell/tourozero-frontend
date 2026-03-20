@@ -76,14 +76,14 @@ export default function Accounting() {
         <div className="space-y-6">
             {/* Cabeçalho Apenas Impressão */}
             <div className="hidden print:block mb-8 text-black">
-                <h1 className="text-3xl font-bold mb-2">Relatório de Faturamento</h1>
+                <h1 className="text-3xl font-bold mb-2">Relatório de Faturamento - Tourozero</h1>
                 <p className="text-sm">Período: {startDate ? new Date(startDate).toLocaleDateString('pt-BR') : 'Início'} até {endDate ? new Date(endDate).toLocaleDateString('pt-BR') : 'Hoje'}</p>
                 <p className="text-sm">Gerado em: {new Date().toLocaleDateString('pt-BR')} {new Date().toLocaleTimeString('pt-BR')}</p>
             </div>
 
             <div className="flex items-center justify-between print:hidden">
                 <h1 className="text-2xl font-bold tracking-tight">Contabilidade e Relatórios</h1>
-                <Button onClick={() => window.print()} variant="outline" className="border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800 transition-colors">
+                <Button onClick={() => window.print()} className="font-bold bg-amber-500 hover:bg-amber-600 text-slate-900 border-none print:hidden">
                     <Printer className="w-4 h-4 mr-2" />
                     Imprimir Relatório
                 </Button>
@@ -169,43 +169,40 @@ export default function Accounting() {
                 <Table>
                     <TableHeader className="print:text-black">
                         <TableRow className="print:border-b-2 print:border-black">
-                            <TableHead className="print:text-black">Data</TableHead>
-                            <TableHead className="print:text-black">Cliente</TableHead>
-                            <TableHead className="print:text-black">Equipamentos</TableHead>
-                            <TableHead className="print:text-black">Status</TableHead>
-                            <TableHead className="text-right print:text-black">Valor</TableHead>
+                            <TableHead className="print:text-black">Data do Aluguer</TableHead>
+                            <TableHead className="print:text-black">Nome do Cliente</TableHead>
+                            <TableHead className="text-right print:text-black">Valor Total (€)</TableHead>
+                            <TableHead className="text-right print:text-black">Status</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {filteredRentals.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={5} className="text-center py-8 text-slate-400 print:text-black">Nenhum registo encontrado no período selecionado.</TableCell>
+                                <TableCell colSpan={4} className="text-center py-8 text-slate-400 print:text-black">Nenhum registo encontrado no período selecionado.</TableCell>
                             </TableRow>
                         ) : (
                             filteredRentals.map(r => (
                                 <TableRow key={r.id} className="print:border-b print:border-slate-200">
                                     <TableCell className="print:text-black">{new Date(r.pickup_date).toLocaleDateString('pt-BR')}</TableCell>
                                     <TableCell className="print:text-black font-medium">{r.customers?.full_name || 'Desconhecido'}</TableCell>
-                                    <TableCell className="print:text-black text-xs text-slate-400">
-                                        {r.items ? r.items.map((i: any) => i.name).join(', ') : '--'}
-                                    </TableCell>
-                                    <TableCell className="print:text-black">
-                                        <span className={`text-xs px-2 py-1 rounded-full ${r.status === 'active' ? 'bg-emerald-500/10 text-emerald-500 print:border print:border-emerald-500' : 'bg-slate-500/10 text-slate-500 print:border print:border-slate-500'}`}>
+                                    <TableCell className="text-right font-medium print:text-black">{Number(r.total_value).toFixed(2)} €</TableCell>
+                                    <TableCell className="text-right print:text-black">
+                                        <span className={`text-xs px-2 py-1 rounded-full inline-block ${r.status === 'active' ? 'bg-emerald-500/10 text-emerald-500 print:border print:border-emerald-500' : 'bg-slate-500/10 text-slate-500 print:border print:border-slate-500'}`}>
                                             {r.status === 'active' ? 'Ativo' : (r.status === 'completed' ? 'Finalizado' : 'Cancelado')}
                                         </span>
                                     </TableCell>
-                                    <TableCell className="text-right font-medium print:text-black">{Number(r.total_value).toFixed(2)} €</TableCell>
                                 </TableRow>
                             ))
                         )}
                         {/* Rodapé Dinâmico */}
                         <TableRow className="bg-slate-900/80 hover:bg-slate-900/80 print:bg-white print:border-t-2 print:border-black font-bold text-base">
-                            <TableCell colSpan={4} className="text-right text-slate-300 print:text-black uppercase tracking-wider py-4">
+                            <TableCell colSpan={2} className="text-right text-slate-300 print:text-black uppercase tracking-wider py-4">
                                 Soma Total do Período
                             </TableCell>
                             <TableCell className="text-right text-emerald-400 print:text-black py-4">
                                 {totalRevenue.toFixed(2)} €
                             </TableCell>
+                            <TableCell></TableCell>
                         </TableRow>
                     </TableBody>
                 </Table>
