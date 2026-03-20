@@ -21,32 +21,52 @@ export function generateRentalContract(rental: Rental) {
     doc.line(14, 30, pageWidth - 14, 30);
 
     // --- DADOS DO CLIENTE ---
+    const customer = rental.customers;
     const startYCustomer = 40;
+    
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
     doc.text('DADOS DO CLIENTE', 14, startYCustomer);
 
+    const startYClient = startYCustomer + 8;
+    
+    // Nome
+    doc.setFont('helvetica', 'bold');
+    doc.text('Nome: ', 14, startYClient);
     doc.setFont('helvetica', 'normal');
-    const customer = rental.customers;
-    const phoneInfo = customer.phone ? `Tlm: ${customer.phone}` : 'Tlm: N/A';
-    const emailInfo = customer.email ? `Email: ${customer.email}` : 'Email: N/A';
-    const nifInfo = `NIF: ${customer.tax_id || 'N/A'}`;
+    doc.text(customer.full_name, 14 + doc.getTextWidth('Nome: '), startYClient);
 
-    // Fallback: garante que lê rental.delivery_address, ou que indica recolha
+    // Tlm
+    doc.setFont('helvetica', 'bold');
+    doc.text('Tlm: ', pageWidth / 2, startYClient);
+    doc.setFont('helvetica', 'normal');
+    doc.text(customer.phone || 'N/A', pageWidth / 2 + doc.getTextWidth('Tlm: '), startYClient);
+    
+    // NIF
+    doc.setFont('helvetica', 'bold');
+    doc.text('NIF: ', 14, startYClient + 7);
+    doc.setFont('helvetica', 'normal');
+    doc.text(customer.tax_id || 'N/A', 14 + doc.getTextWidth('NIF: '), startYClient + 7);
+
+    // Email
+    doc.setFont('helvetica', 'bold');
+    doc.text('Email: ', pageWidth / 2, startYClient + 7);
+    doc.setFont('helvetica', 'normal');
+    doc.text(customer.email || 'N/A', pageWidth / 2 + doc.getTextWidth('Email: '), startYClient + 7);
+
+    // Morada de Entrega (100% largura)
     const moradaFinal = rental.delivery_address && rental.delivery_address.trim() !== ''
         ? rental.delivery_address
-        : 'Recolha nas instalações';
-
-    doc.text(`Nome: ${customer.full_name}`, 14, startYCustomer + 8);
-    doc.text(nifInfo, 14, startYCustomer + 14);
-    doc.text(`Morada de Entrega: ${moradaFinal}`, 14, startYCustomer + 20);
-
-    doc.text(phoneInfo, pageWidth / 2, startYCustomer + 8);
-    doc.text(emailInfo, pageWidth / 2, startYCustomer + 14);
-
+        : (customer as any).address || 'Recolha nas instalações';
+    
+    const addressY = startYClient + 18; // Margem superior extra
+    doc.setFont('helvetica', 'bold');
+    doc.text('Morada de Entrega: ', 14, addressY);
+    doc.setFont('helvetica', 'normal');
+    doc.text(moradaFinal, 14 + doc.getTextWidth('Morada de Entrega: '), addressY, { maxWidth: pageWidth - 28 - doc.getTextWidth('Morada de Entrega: ') });
 
     // --- DADOS DO ALUGUER ---
-    const startYRental = startYCustomer + 35;
+    const startYRental = addressY + 16;
     doc.setFont('helvetica', 'bold');
     doc.text('DETALHES DO ALUGUER', 14, startYRental);
 
