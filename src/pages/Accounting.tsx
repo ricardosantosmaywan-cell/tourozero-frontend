@@ -185,6 +185,38 @@ export default function Accounting() {
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Secção Divisão de Parceria */}
+            <div className="grid gap-6 md:grid-cols-2 print:hidden mt-6">
+                <Card className="bg-slate-900 border-slate-800 border-l-4 border-l-emerald-500">
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                        <CardTitle className="text-lg font-medium text-slate-300">Parte do Proprietário (80%)</CardTitle>
+                        <Euro className="h-6 w-6 text-emerald-500" />
+                    </CardHeader>
+                    <CardContent>
+                        {loading ? (
+                            <div className="text-xl text-slate-500 animate-pulse">Calculando...</div>
+                        ) : (
+                            <div className="text-3xl font-bold text-emerald-500">{(totalRevenue * 0.8).toFixed(2)} €</div>
+                        )}
+                    </CardContent>
+                </Card>
+
+                <Card className="bg-slate-900 border-slate-800 border-l-4 border-l-blue-500">
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                        <CardTitle className="text-lg font-medium text-slate-300">Comissão Maywan (20%)</CardTitle>
+                        <TrendingUp className="h-6 w-6 text-blue-500" />
+                    </CardHeader>
+                    <CardContent>
+                        {loading ? (
+                            <div className="text-xl text-slate-500 animate-pulse">Calculando...</div>
+                        ) : (
+                            <div className="text-3xl font-bold text-blue-500">{(totalRevenue * 0.2).toFixed(2)} €</div>
+                        )}
+                    </CardContent>
+                </Card>
+            </div>
+
             {/* Tabela de Relatório */}
             <div className="mt-8 rounded-lg border border-slate-800 bg-slate-900/50 overflow-hidden print:border-none print:mt-4 print:bg-white print:text-black">
                 <div className="p-4 border-b border-slate-800 print:hidden">
@@ -197,13 +229,15 @@ export default function Accounting() {
                             <TableHead className="print:text-black">Nome do Cliente</TableHead>
                             <TableHead className="text-right print:text-black">Valor Líquido (€)</TableHead>
                             <TableHead className="text-right print:text-black">Transporte (€)</TableHead>
+                            <TableHead className="text-right print:text-black">Prop. (80%)</TableHead>
+                            <TableHead className="text-right print:text-black text-blue-400">Comissão (20%)</TableHead>
                             <TableHead className="text-right print:text-black">Status</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {filteredRentals.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={5} className="text-center py-8 text-slate-400 print:text-black">Nenhum registo encontrado no período selecionado.</TableCell>
+                                <TableCell colSpan={7} className="text-center py-8 text-slate-400 print:text-black">Nenhum registo encontrado no período selecionado.</TableCell>
                             </TableRow>
                         ) : (
                             filteredRentals.map(r => (
@@ -212,6 +246,12 @@ export default function Accounting() {
                                     <TableCell className="print:text-black font-medium">{r.customers?.full_name || 'Desconhecido'}</TableCell>
                                     <TableCell className="text-right font-bold print:text-black text-emerald-400">{(Number(r.total_amount || 0) - Number(r.deposit_value || 0) - Number(r.transport_value || 0)).toFixed(2)} €</TableCell>
                                     <TableCell className="text-right font-bold print:text-black text-amber-500">{(Number(r.transport_value || 0)).toFixed(2)} €</TableCell>
+                                    <TableCell className="text-right font-medium print:text-black text-emerald-500">
+                                        {((Number(r.total_amount || 0) - Number(r.deposit_value || 0) - Number(r.transport_value || 0)) * 0.8).toFixed(2)} €
+                                    </TableCell>
+                                    <TableCell className="text-right font-bold print:text-black text-blue-500">
+                                        {((Number(r.total_amount || 0) - Number(r.deposit_value || 0) - Number(r.transport_value || 0)) * 0.2).toFixed(2)} €
+                                    </TableCell>
                                     <TableCell className="text-right print:text-black">
                                         <span className={`text-xs px-2 py-1 rounded-full inline-block ${r.status === 'active' ? 'bg-emerald-500/10 text-emerald-500 print:border print:border-emerald-500' : 'bg-slate-500/10 text-slate-500 print:border print:border-slate-500'}`}>
                                             {r.status === 'active' ? 'Ativo' : (r.status === 'completed' ? 'Finalizado' : 'Cancelado')}
@@ -230,6 +270,12 @@ export default function Accounting() {
                             </TableCell>
                             <TableCell className="text-right text-amber-500 print:text-black py-4">
                                 {totalTransport.toFixed(2)} €
+                            </TableCell>
+                            <TableCell className="text-right text-emerald-500 print:text-black py-4">
+                                {(totalRevenue * 0.8).toFixed(2)} €
+                            </TableCell>
+                            <TableCell className="text-right text-blue-500 print:text-black py-4">
+                                {(totalRevenue * 0.2).toFixed(2)} €
                             </TableCell>
                             <TableCell></TableCell>
                         </TableRow>
