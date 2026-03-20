@@ -55,8 +55,8 @@ export default function Dashboard() {
         const lastMonthPrefix = lastMonthDate.toISOString().substring(0, 7);
         const lastMonthName = lastMonthDate.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
 
-        const lastRev = rentals.filter(r => r.pickup_date.startsWith(lastMonthPrefix)).reduce((acc, curr) => acc + curr.total_amount, 0);
-        const currRev = rentals.filter(r => r.pickup_date.startsWith(currentMonthPrefix)).reduce((acc, curr) => acc + curr.total_amount, 0);
+        const lastRev = rentals.filter(r => r.pickup_date.startsWith(lastMonthPrefix)).reduce((acc, curr) => acc + (Number(curr.total_amount || 0) - Number(curr.deposit_value || 0) - Number(curr.transport_value || 0)), 0);
+        const currRev = rentals.filter(r => r.pickup_date.startsWith(currentMonthPrefix)).reduce((acc, curr) => acc + (Number(curr.total_amount || 0) - Number(curr.deposit_value || 0) - Number(curr.transport_value || 0)), 0);
 
         return [
             { name: lastMonthName, Faturamento: lastRev },
@@ -90,7 +90,7 @@ export default function Dashboard() {
 
     // Estatísticas Dinâmicas para os Cards
     const currentMonthPrefix = new Date().toISOString().substring(0, 7);
-    const monthlyRevenue = rentals.filter(r => r.pickup_date.startsWith(currentMonthPrefix)).reduce((acc, curr) => acc + curr.total_amount, 0);
+    const monthlyRevenue = rentals.filter(r => r.pickup_date.startsWith(currentMonthPrefix)).reduce((acc, curr) => acc + (Number(curr.total_amount || 0) - Number(curr.deposit_value || 0) - Number(curr.transport_value || 0)), 0);
 
     const stats = {
         monthlyRevenue,
@@ -251,7 +251,7 @@ export default function Dashboard() {
                                                     )}
                                                 </TableCell>
                                                 <TableCell className="font-semibold text-emerald-400">
-                                                    {Number(rental.total_amount || 0).toFixed(2)} €
+                                                    {(Number(rental.total_amount || 0) - Number(rental.deposit_value || 0) - Number(rental.transport_value || 0)).toFixed(2)} €
                                                 </TableCell>
                                                 <TableCell className="text-right flex items-center justify-end gap-2">
                                                     <Button
@@ -301,8 +301,8 @@ export default function Dashboard() {
                             <TableFooter>
                                 <TableRow className="bg-slate-900 border-t border-slate-800">
                                     <TableCell colSpan={3} className="text-right font-medium text-slate-400">Total Filtrado:</TableCell>
-                                    <TableCell className="font-bold text-emerald-400 text-base">
-                                        {displayRentals.reduce((acc, r) => acc + Number(r.total_amount || 0), 0).toFixed(2)} €
+                                    <TableCell className="font-bold text-emerald-400">
+                                        {displayRentals.reduce((acc, r) => acc + (Number(r.total_amount || 0) - Number(r.deposit_value || 0) - Number(r.transport_value || 0)), 0).toFixed(2)} €
                                     </TableCell>
                                     <TableCell></TableCell>
                                 </TableRow>
