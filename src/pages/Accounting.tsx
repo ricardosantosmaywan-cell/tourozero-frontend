@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useGlobalRentals, useGlobalProducts } from '../data/mockDatabase';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
-import { Euro, TrendingUp, Filter } from 'lucide-react';
+import { Euro, TrendingUp, Filter, Printer } from 'lucide-react';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
 
 export default function Accounting() {
     const [totalRevenue, setTotalRevenue] = useState(0);
@@ -13,6 +14,7 @@ export default function Accounting() {
     // Filtros
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
+    const [filteredRentals, setFilteredRentals] = useState<any[]>([]);
 
     const { rentals } = useGlobalRentals();
     const { products } = useGlobalProducts();
@@ -21,23 +23,24 @@ export default function Accounting() {
         setLoading(true);
 
         // 1. Filtro dos Alugueres pela Data
-        let filteredRentals = rentals;
+        let filteredData = rentals;
         if (startDate) {
-            filteredRentals = filteredRentals.filter(r => new Date(r.pickup_date) >= new Date(startDate));
+            filteredData = filteredData.filter(r => new Date(r.pickup_date) >= new Date(startDate));
         }
         if (endDate) {
-            filteredRentals = filteredRentals.filter(r => new Date(r.pickup_date) <= new Date(endDate));
+            filteredData = filteredData.filter(r => new Date(r.pickup_date) <= new Date(endDate));
         }
+        setFilteredRentals(filteredData);
 
         // 2. Faturamento
-        const revenue = filteredRentals.reduce((acc, curr) => acc + Number(curr.total_value || 0), 0);
+        const revenue = filteredData.reduce((acc, curr) => acc + Number(curr.total_value || 0), 0);
         setTotalRevenue(revenue);
 
         // 3. Produtos Mais Alugados (Top 5)
         const productStats: Record<string, number> = {};
         let totalItemsRented = 0;
 
-        filteredRentals.forEach(rental => {
+        filteredData.forEach(rental => {
             if (rental.items && rental.items.length > 0) {
                 rental.items.forEach(item => {
                     if (!productStats[item.product_id]) productStats[item.product_id] = 0;
@@ -71,11 +74,22 @@ export default function Accounting() {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <h1 className="text-2xl font-bold tracking-tight">Contabilidade e Relatórios</h1>
+            {/* Cabeçalho Apenas Impressão */}
+            <div className="hidden print:block mb-8 text-black">
+                <h1 className="text-3xl font-bold mb-2">Relatório de Faturamento</h1>
+                <p className="text-sm">Período: {startDate ? new Date(startDate).toLocaleDateString('pt-BR') : 'Início'} até {endDate ? new Date(endDate).toLocaleDateString('pt-BR') : 'Hoje'}</p>
+                <p className="text-sm">Gerado em: {new Date().toLocaleDateString('pt-BR')} {new Date().toLocaleTimeString('pt-BR')}</p>
             </div>
 
-            <div className="flex flex-col md:flex-row items-end gap-3 p-4 bg-slate-900 border border-slate-800 rounded-lg">
+            <div className="flex items-center justify-between print:hidden">
+                <h1 className="text-2xl font-bold tracking-tight">Contabilidade e Relatórios</h1>
+                <Button onClick={() => window.print()} variant="outline" className="border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800 transition-colors">
+                    <Printer className="w-4 h-4 mr-2" />
+                    Imprimir Relatório
+                </Button>
+            </div>
+
+            <div className="flex flex-col md:flex-row items-end gap-3 p-4 bg-slate-900 border border-slate-800 rounded-lg print:hidden">
                 <div className="w-full md:w-auto">
                     <label className="block text-xs text-slate-400 mb-1">Data Inicial</label>
                     <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
@@ -90,7 +104,7 @@ export default function Accounting() {
                 </Button>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2">
+            <div className="grid gap-6 md:grid-cols-2 print:hidden">
                 <Card className="bg-gradient-to-br from-slate-900 to-slate-950 border-emerald-500/20">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                         <CardTitle className="text-lg font-medium text-slate-300">Total Faturado</CardTitle>
@@ -147,8 +161,55 @@ export default function Accounting() {
                     </CardContent>
                 </Card>
             </div>
-
-            {/* Aqui pode receber uma Tabela com os Extratos completos filtrados se necessário futuramente */}
+            {/* Tabela de Relatório */}
+            <div className="mt-8 rounded-lg border border-slate-800 bg-slate-900/50 overflow-hidden print:border-none print:mt-4 print:bg-white print:text-black">
+                <div className="p-4 border-b border-slate-800 print:hidden">
+                    <h2 className="text-lg font-medium text-slate-300">Extrato de Faturamento</h2>
+                </div>
+                <Table>
+                    <TableHeader className="print:text-black">
+                        <TableRow className="print:border-b-2 print:border-black">
+                            <TableHead className="print:text-black">Data</TableHead>
+                            <TableHead className="print:text-black">Cliente</TableHead>
+                            <TableHead className="print:text-black">Equipamentos</TableHead>
+                            <TableHead className="print:text-black">Status</TableHead>
+                            <TableHead className="text-right print:text-black">Valor</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {filteredRentals.length === 0 ? (
+                            <TableRow>
+                                <TableCell colSpan={5} className="text-center py-8 text-slate-400 print:text-black">Nenhum registo encontrado no período selecionado.</TableCell>
+                            </TableRow>
+                        ) : (
+                            filteredRentals.map(r => (
+                                <TableRow key={r.id} className="print:border-b print:border-slate-200">
+                                    <TableCell className="print:text-black">{new Date(r.pickup_date).toLocaleDateString('pt-BR')}</TableCell>
+                                    <TableCell className="print:text-black font-medium">{r.customers?.full_name || 'Desconhecido'}</TableCell>
+                                    <TableCell className="print:text-black text-xs text-slate-400">
+                                        {r.items ? r.items.map((i: any) => i.name).join(', ') : '--'}
+                                    </TableCell>
+                                    <TableCell className="print:text-black">
+                                        <span className={`text-xs px-2 py-1 rounded-full ${r.status === 'active' ? 'bg-emerald-500/10 text-emerald-500 print:border print:border-emerald-500' : 'bg-slate-500/10 text-slate-500 print:border print:border-slate-500'}`}>
+                                            {r.status === 'active' ? 'Ativo' : (r.status === 'completed' ? 'Finalizado' : 'Cancelado')}
+                                        </span>
+                                    </TableCell>
+                                    <TableCell className="text-right font-medium print:text-black">{Number(r.total_value).toFixed(2)} €</TableCell>
+                                </TableRow>
+                            ))
+                        )}
+                        {/* Rodapé Dinâmico */}
+                        <TableRow className="bg-slate-900/80 hover:bg-slate-900/80 print:bg-white print:border-t-2 print:border-black font-bold text-base">
+                            <TableCell colSpan={4} className="text-right text-slate-300 print:text-black uppercase tracking-wider py-4">
+                                Soma Total do Período
+                            </TableCell>
+                            <TableCell className="text-right text-emerald-400 print:text-black py-4">
+                                {totalRevenue.toFixed(2)} €
+                            </TableCell>
+                        </TableRow>
+                    </TableBody>
+                </Table>
+            </div>
         </div>
     );
 }

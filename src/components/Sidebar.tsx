@@ -35,7 +35,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
 
     return (
         <aside className={cn(
-            "fixed inset-y-0 left-0 z-40 w-64 border-r border-slate-800 bg-slate-950 flex flex-col h-screen transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 shadow-2xl md:shadow-none",
+            "fixed inset-y-0 left-0 z-40 w-64 border-r border-slate-800 bg-slate-950 flex flex-col h-screen transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 shadow-2xl md:shadow-none print:hidden",
             isOpen ? "translate-x-0" : "-translate-x-full"
         )}>
             <div className="h-16 hidden md:flex items-center px-6 border-b border-slate-800 shrink-0">

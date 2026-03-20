@@ -7,9 +7,9 @@ export default function Layout() {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     return (
-        <div className="flex h-screen w-full bg-slate-950 text-slate-50 overflow-hidden relative">
+        <div className="flex h-screen w-full bg-slate-950 text-slate-50 overflow-hidden relative print:bg-white print:text-black print:h-auto print:overflow-visible print:block">
             {/* Mobile Header */}
-            <div className="md:hidden flex items-center justify-between p-4 border-b border-slate-800 bg-slate-950 absolute top-0 w-full z-20">
+            <div className="md:hidden flex items-center justify-between p-4 border-b border-slate-800 bg-slate-950 absolute top-0 w-full z-20 print:hidden">
                 <h1 className="text-xl font-bold flex items-center gap-2">
                     <span className="text-amber-500">Touro</span>zero
                 </h1>
@@ -23,9 +23,9 @@ export default function Layout() {
 
             <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
 
-            <main className="flex-1 overflow-y-auto p-4 md:p-8 pt-20 md:pt-8 relative w-full">
+            <main className="flex-1 overflow-y-auto p-4 md:p-8 pt-20 md:pt-8 relative w-full print:p-0 print:pt-0 print:overflow-visible">
                 {/* Fundo com leve gradiente para elegância extra (opcional) */}
-                <div className="absolute inset-0 bg-gradient-to-br from-slate-950 to-slate-900 -z-10" />
+                <div className="absolute inset-0 bg-gradient-to-br from-slate-950 to-slate-900 -z-10 print:hidden" />
 
                 <div className="max-w-7xl mx-auto w-full">
                     <Outlet />
