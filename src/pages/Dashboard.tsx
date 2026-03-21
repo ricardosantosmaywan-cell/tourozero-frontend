@@ -17,8 +17,13 @@ export default function Dashboard() {
     const navigate = useNavigate();
     const [currentTime, setCurrentTime] = useState(new Date());
 
-    const { rentals, updateRental, deleteRental } = useGlobalRentals();
-    const { products } = useGlobalProducts();
+    const { rentals, updateRental, deleteRental, refreshRentals } = useGlobalRentals();
+    const { products, refreshProducts } = useGlobalProducts();
+
+    useEffect(() => {
+        refreshRentals();
+        refreshProducts();
+    }, []);
 
     // Tabela State
     const [searchTerm, setSearchTerm] = useState('');
