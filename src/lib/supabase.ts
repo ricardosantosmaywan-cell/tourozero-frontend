@@ -1,11 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
-export const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'UNDEFINED VITE_SUPABASE_URL';
-export const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'UNDEFINED_KEY';
-
-if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
-    throw new Error('Faltam variáveis de ambiente do Supabase. Verifique o seu ficheiro .env');
-}
+export const supabaseUrl = 'https://znsktlbfngiatbedtfbj.supabase.co';
+export const supabaseKey = 'sb_publishable_7a9eVVqeVSf3doAILjrqEQ_EvrcHe6t';
 
 export const supabase = createClient(supabaseUrl, supabaseKey, {
     global: {
