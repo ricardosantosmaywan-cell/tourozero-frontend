@@ -209,8 +209,8 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
                     <Button type="button" variant="outline" className="w-full border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300" onClick={() => generateRentalContract(rental)}>
                         <Printer className="w-4 h-4 mr-2 text-slate-400" /> Imprimir Recibo
                     </Button>
-                    <Button type="button" className="w-full bg-amber-600 hover:bg-amber-500 text-slate-50 font-semibold shadow-lg shadow-amber-900/20" onClick={() => printRentalContractHTML(rental)}>
-                        <FileText className="w-4 h-4 mr-2" /> Imprimir Contrato Oficial
+                    <Button type="button" variant="outline" className="w-full border-amber-500/50 bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 font-semibold" onClick={() => printRentalContractHTML(rental)}>
+                        <FileText className="w-4 h-4 mr-2" /> IMPRIMIR CONTRATO JURÍDICO
                     </Button>
                 </div>
 

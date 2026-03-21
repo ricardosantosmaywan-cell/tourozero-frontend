@@ -50,18 +50,18 @@ export function printRentalContractHTML(rental: Rental) {
             font-size: 11pt;
             line-height: 1.5;
             color: #000;
-            background: #d1d5db; /* A darker background to outline the paper */
+            background: #fff;
             margin: 0;
-            padding: 40px 20px;
+            padding: 20px;
             display: flex;
             justify-content: center;
         }
         .document-container {
             background: white;
-            padding: 20mm;
+            padding: 0;
             max-width: 210mm;
             width: 100%;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            box-shadow: none;
             box-sizing: border-box;
         }
         h1 {
@@ -103,6 +103,20 @@ export function printRentalContractHTML(rental: Rental) {
 </head>
 <body onload="setTimeout(() => { window.print(); window.onafterprint = function(){ window.close(); }; }, 500);">
     <div class="document-container">
+        <div class="section" style="margin-bottom: 20px;">
+            <p><strong>Adicionais (Pranchas, Pés e Rodas, outros).</strong></p>
+            <ul class="checkbox-list">
+                <li class="checkbox-item">( &nbsp; ) Pé nivelador ________________________</li>
+                <li class="checkbox-item">( &nbsp; ) Pranchas ________________________</li>
+                <li class="checkbox-item">( &nbsp; ) Rodas ________________________</li>
+                <li class="checkbox-item">( &nbsp; ) Outros ________________________</li>
+            </ul>
+        </div>
+
+        <div class="section" style="margin-bottom: 30px;">
+            <p>Obs: Caso necessite de prolongar o período deve ser pago com antecedência. É necessário apresentação dos documentos.</p>
+        </div>
+
         <h1>CONTRATO DE PRESTAÇÃO DE SERVIÇOS</h1>
         
         <div class="section">
@@ -150,20 +164,6 @@ export function printRentalContractHTML(rental: Rental) {
 
         <div class="section" style="margin-top: 20px;">
             <p>Data de recolha: <strong>${start_date}</strong> | Tendo a data da entrega: <strong>${end_date}</strong></p>
-        </div>
-
-        <div class="section" style="margin-top: 15px;">
-            <p><strong>Adicionais (Pranchas, Pés e Rodas, outros).</strong></p>
-            <ul class="checkbox-list">
-                <li class="checkbox-item">( &nbsp; ) Pé nivelador ________________________</li>
-                <li class="checkbox-item">( &nbsp; ) Pranchas ________________________</li>
-                <li class="checkbox-item">( &nbsp; ) Rodas ________________________</li>
-                <li class="checkbox-item">( &nbsp; ) Outros ________________________</li>
-            </ul>
-        </div>
-
-        <div class="section" style="margin-top: 20px; font-weight: bold; padding: 10px; border: 1px solid #000;">
-            <p>Obs: Caso necessite de prolongar o período deve ser pago com antecedência. É necessário apresentação dos documentos válidos.</p>
         </div>
 
         <div class="signatures">
