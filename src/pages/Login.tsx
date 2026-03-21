@@ -20,14 +20,16 @@ export default function Login() {
         setLoading(true);
         setError(null);
 
-        try {
-            await signIn(email, password);
-            navigate('/');
-        } catch (err: any) {
-            setError(err.message || 'Erro ao fazer login. Verifique as credenciais.');
-        } finally {
+        setTimeout(() => {
+            const validEmails = ['admin@tourozero.com', 'ricardosantosmaywan@gmail.com'];
+            if (validEmails.includes(email) && password === 'admin123') {
+                signIn(email);
+                navigate('/');
+            } else {
+                setError('Credenciais inválidas. Use admin@tourozero.com ou ricardosantosmaywan@gmail.com');
+            }
             setLoading(false);
-        }
+        }, 800);
     };
 
     return (
@@ -57,7 +59,7 @@ export default function Login() {
                             <Input
                                 type="email"
                                 required
-                                placeholder="admin@tourozero.com"
+                                placeholder="seu@email.com"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                             />
