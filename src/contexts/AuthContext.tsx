@@ -1,13 +1,13 @@
 /* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import type { User, Session } from '@supabase/supabase-js';
-
+import { supabase } from '../lib/supabase';
 
 interface AuthContextType {
     user: User | null;
     session: Session | null;
     loading: boolean;
-    signIn: (email: string) => void;
+    signIn: (email: string, password: string) => Promise<void>;
     signOut: () => Promise<void>;
 }
 
@@ -15,7 +15,7 @@ const AuthContext = createContext<AuthContextType>({
     user: null,
     session: null,
     loading: true,
-    signIn: () => { },
+    signIn: async () => { },
     signOut: async () => { },
 });
 
@@ -25,26 +25,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const mockSession = localStorage.getItem('@tourozero:mockSession');
-        if (mockSession) {
-            const parsed = JSON.parse(mockSession);
-            setSession(parsed.session);
-            setUser(parsed.user);
-        }
-        setLoading(false);
+        // Verificar sessão existente
+        supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+            setSession(currentSession);
+            setUser(currentSession?.user ?? null);
+            setLoading(false);
+        });
+
+        // Ouvir mudanças de autenticação
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
+            setSession(newSession);
+            setUser(newSession?.user ?? null);
+        });
+
+        return () => subscription.unsubscribe();
     }, []);
 
-    const signIn = (email: string) => {
-        const mockUser = { id: 'mock-user-123', email } as User;
-        const mockSess = { access_token: 'mock-token', user: mockUser } as Session;
-
-        localStorage.setItem('@tourozero:mockSession', JSON.stringify({ session: mockSess, user: mockUser }));
-        setSession(mockSess);
-        setUser(mockUser);
+    const signIn = async (email: string, password: string) => {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
     };
 
     const signOut = async () => {
-        localStorage.removeItem('@tourozero:mockSession');
+        await supabase.auth.signOut();
         setSession(null);
         setUser(null);
     };

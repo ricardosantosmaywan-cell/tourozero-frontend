@@ -20,15 +20,14 @@ export default function Login() {
         setLoading(true);
         setError(null);
 
-        setTimeout(() => {
-            if (email === 'admin@tourozero.com' && password === 'admin123') {
-                signIn(email);
-                navigate('/');
-            } else {
-                setError('Credenciais inválidas. Use admin@tourozero.com e admin123');
-            }
+        try {
+            await signIn(email, password);
+            navigate('/');
+        } catch (err: any) {
+            setError(err.message || 'Erro ao fazer login. Verifique as suas credenciais.');
+        } finally {
             setLoading(false);
-        }, 800);
+        }
     };
 
     return (
