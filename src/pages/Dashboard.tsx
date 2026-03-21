@@ -122,14 +122,14 @@ export default function Dashboard() {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <div className="flex items-center gap-3">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-50">
+                <div className="relative z-50">
+                    <div className="flex flex-wrap items-center gap-3 relative z-50">
                         <h1 className="text-3xl font-bold tracking-tight text-slate-50">Painel de Controlo</h1>
                         <Button 
                             variant="outline" 
                             size="sm" 
-                            className="bg-slate-900 border-slate-700 hover:bg-slate-800 text-slate-300 h-8 px-3"
+                            className="flex items-center bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border border-amber-500/50 h-8 px-3 z-50 relative shadow-sm transition-colors"
                             onClick={() => {
                                 refreshRentals();
                                 refreshProducts();
