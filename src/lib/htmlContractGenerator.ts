@@ -3,188 +3,130 @@ import type { Rental } from '../data/mockDatabase';
 export function printRentalContractHTML(rental: Rental) {
     if (!rental) return;
 
-    const customer = rental.customers;
-    const start_date = new Date(rental.pickup_date).toLocaleDateString('pt-BR');
-    const end_date = new Date(rental.return_date).toLocaleDateString('pt-BR');
-    
-    const deposit_value = Number(rental.deposit_value || 0).toFixed(2);
-    // Subtotal dos materiais
-    const total_price = (Number(rental.total_amount) - Number(rental.deposit_value || 0) - Number(rental.transport_value || 0)).toFixed(2);
-    
-    // Calcula quantidade total aproximada de conjuntos (andaimes)
-    let quantity_sets = rental.items?.find((i: any) => i.name.toLowerCase().includes('andaime'))?.quantity;
-    if (!quantity_sets) {
-        // Fallback: soma todas as quantidades ou define 0
-        quantity_sets = rental.items?.reduce((acc: number, curr: any) => acc + curr.quantity, 0) || 0;
+    const c = rental.customers;
+    const customerName = c?.full_name || '________________________';
+    const customerNif = c?.tax_id || '________________________';
+    const startDate = new Date(rental.pickup_date).toLocaleDateString('pt-PT');
+    const endDate = new Date(rental.return_date).toLocaleDateString('pt-PT');
+    const depositValue = Number(rental.deposit_value || 0).toFixed(2);
+    const totalPrice = (Number(rental.total_amount || 0) - Number(rental.deposit_value || 0) - Number(rental.transport_value || 0)).toFixed(2);
+
+    // Conjuntos de andaimes
+    let quantitySets: number = 0;
+    const andaimeItem = rental.items?.find((i: any) => i.name?.toLowerCase().includes('andaime'));
+    if (andaimeItem) {
+        quantitySets = andaimeItem.quantity;
+    } else {
+        quantitySets = rental.items?.reduce((acc: number, curr: any) => acc + curr.quantity, 0) || 0;
     }
 
-    const htmlContent = `
-<!DOCTYPE html>
+    const doc = `<!DOCTYPE html>
 <html lang="pt-PT">
 <head>
-    <meta charset="UTF-8">
-    <title>Contrato Tourozero - ${customer.full_name}</title>
-    <style>
-        @media print {
-            @page {
-                size: A4;
-                margin: 20mm;
-            }
-            body {
-                background: white;
-                color: black;
-                margin: 0;
-                padding: 0;
-            }
-            .no-print {
-                display: none;
-            }
-            .document-container {
-                box-shadow: none !important;
-                padding: 0 !important;
-                background: transparent !important;
-            }
-        }
-        body {
-            font-family: 'Times New Roman', Times, serif;
-            font-size: 11pt;
-            line-height: 1.5;
-            color: #000;
-            background: #fff;
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            justify-content: center;
-        }
-        .document-container {
-            background: white;
-            padding: 0;
-            max-width: 210mm;
-            width: 100%;
-            box-shadow: none;
-            box-sizing: border-box;
-        }
-        h1 {
-            text-align: center;
-            font-weight: bold;
-            font-size: 16pt;
-            text-decoration: underline;
-            margin-bottom: 25px;
-            margin-top: 0;
-        }
-        .section {
-            margin-bottom: 15px;
-            text-align: justify;
-        }
-        .signatures {
-            margin-top: 60px;
-            display: flex;
-            justify-content: space-between;
-        }
-        .signature-box {
-            width: 45%;
-            text-align: center;
-            border-top: 1px solid #000;
-            padding-top: 5px;
-            font-size: 10pt;
-        }
-        .checkbox-list {
-            list-style: none;
-            padding: 0;
-            margin: 5px 0 0 0;
-        }
-        .checkbox-item {
-            margin-bottom: 8px;
-        }
-        p {
-            margin: 0 0 10px 0;
-        }
-    </style>
+<meta charset="UTF-8">
+<title>Contrato Juridico - ${customerName}</title>
+<style>
+@media print {
+  @page { size: A4; margin: 18mm; }
+  body { margin: 0; padding: 0; }
+}
+body {
+  font-family: 'Times New Roman', Times, serif;
+  font-size: 12pt;
+  line-height: 1.6;
+  color: #000;
+  background: #fff;
+  max-width: 210mm;
+  margin: 0 auto;
+  padding: 20mm;
+}
+h2 {
+  text-align: center;
+  text-decoration: underline;
+  font-size: 15pt;
+  margin: 30px 0 20px 0;
+}
+p { text-align: justify; margin: 0 0 12px 0; }
+.checklist { margin: 0 0 25px 0; }
+.checklist-item { margin: 6px 0; }
+.obs { margin: 0 0 30px 0; font-style: italic; }
+.assinaturas {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 80px;
+}
+.assinatura {
+  width: 42%;
+  text-align: center;
+  border-top: 1px solid #000;
+  padding-top: 8px;
+  font-size: 11pt;
+}
+</style>
 </head>
-<body onload="setTimeout(() => { window.print(); window.onafterprint = function(){ window.close(); }; }, 500);">
-    <div class="document-container">
-        <div class="section" style="margin-bottom: 20px;">
-            <p><strong>Adicionais (Pranchas, Pés e Rodas, outros).</strong></p>
-            <ul class="checkbox-list">
-                <li class="checkbox-item">( &nbsp; ) Pé nivelador ________________________</li>
-                <li class="checkbox-item">( &nbsp; ) Pranchas ________________________</li>
-                <li class="checkbox-item">( &nbsp; ) Rodas ________________________</li>
-                <li class="checkbox-item">( &nbsp; ) Outros ________________________</li>
-            </ul>
-        </div>
+<body>
 
-        <div class="section" style="margin-bottom: 30px;">
-            <p>Obs: Caso necessite de prolongar o período deve ser pago com antecedência. É necessário apresentação dos documentos.</p>
-        </div>
+<div class="checklist">
+<p><strong>Adicionais (Pranchas, P\u00e9s e Rodas, outros).</strong></p>
+<div class="checklist-item">( &nbsp;&nbsp; ) P\u00e9 nivelador ________________________</div>
+<div class="checklist-item">( &nbsp;&nbsp; ) Pranchas ________________________</div>
+<div class="checklist-item">( &nbsp;&nbsp; ) Rodas ________________________</div>
+<div class="checklist-item">( &nbsp;&nbsp; ) Outros ________________________</div>
+</div>
 
-        <h1>CONTRATO DE PRESTAÇÃO DE SERVIÇOS</h1>
-        
-        <div class="section">
-            <p><strong>Entre:</strong><br>
-            <strong>PRIMEIRA OUTORGANTE:</strong> Enredo Janota Unipessoal, Lda., com sede na Rua Judiaria 14, Almada, 2800-125 Almada, Pessoa Coletiva 515 854 832, representada pelo gerente Gabriel Figueiredo Guimarães.</p>
-            
-            <p><strong>SEGUNDA OUTORGANTE:</strong> ${customer.full_name}, NIF: ${customer.tax_id || '___________'}.</p>
-        </div>
+<p class="obs">Obs: Caso necessite de prolongar o per\u00edodo deve ser pago com anteced\u00eancia. \u00c9 necess\u00e1rio apresenta\u00e7\u00e3o dos documentos.</p>
 
-        <div class="section">
-            <p>É CELEBRADO O PRESENTE CONTRATO DE PRESTAÇÃO DE SERVIÇOS QUE SE REGE PELAS SEGUINTES CLÁUSULAS:</p>
-        </div>
+<h2>CONTRATO DE PRESTA\u00c7\u00c3O DE SERVI\u00c7OS</h2>
 
-        <div class="section">
-            <p><strong>CLÁUSULA PRIMEIRA (Objeto):</strong><br>
-            O Primeiro Outorgante cede ao Segundo Outorgante, a título de aluguer, os equipamentos detalhados neste documento, garantindo o seu bom estado de funcionamento no momento da entrega.</p>
-        </div>
+<p><strong>Entre:</strong></p>
 
-        <div class="section">
-            <p><strong>CLÁUSULA SEGUNDA (Prazo):</strong><br>
-            O aluguer tem início na data de recolha (${start_date}) e término na data prevista de entrega (${end_date}), podendo ser prorrogado mediante acordo prévio e pagamento antecipado.</p>
-        </div>
+<p><strong>PRIMEIRA OUTORGANTE:</strong> Enredo Janota Unipessoal, Lda., com sede na Rua Judiaria 14, Almada, 2800-125 Almada, Pessoa Coletiva 515 854 832, representada pelo gerente Gabriel Figueiredo Guimar\u00e3es.</p>
 
-        <div class="section">
-            <p><strong>CLÁUSULA TERCEIRA:</strong><br>
-            UM – Cedência de ${quantity_sets} Conjuntos (2 laterais, 1 cruzeta, 1 travão, 1 prancha).<br>
-            DOIS – Valor de ${total_price} € + IVA + caução de ${deposit_value} €.<br>
-            TRÊS – Multa por atraso conforme acordado.</p>
-        </div>
+<p><strong>SEGUNDA OUTORGANTE:</strong> ${customerName}, NIF: ${customerNif}.</p>
 
-        <div class="section">
-            <p><strong>CLÁUSULA QUARTA (Responsabilidade e Manutenção):</strong><br>
-            O Segundo Outorgante assume total responsabilidade pela guarda, conservação e correta utilização dos equipamentos, obrigando-se a restituí-los nas mesmas condições. Em caso de dano, furto ou extravio, o Segundo Outorgante indemnizará o Primeiro Outorgante no valor de substituição integral do material, perdendo imediatamente o direito ao valor da caução entregue.</p>
-        </div>
+<p>\u00c9 CELEBRADO O PRESENTE CONTRATO DE PRESTA\u00c7\u00c3O DE SERVI\u00c7OS QUE SE REGE PELAS SEGUINTES CL\u00c1USULAS:</p>
 
-        <div class="section">
-            <p><strong>CLÁUSULA QUINTA (Resolução):</strong><br>
-            O incumprimento de qualquer obrigação estipulada constitui motivo de resolução imediata do presente contrato, reservando-se o Primeiro Outorgante o direito de recolher o equipamento de imediato, sem necessidade de aviso prévio ou indemnização.</p>
-        </div>
+<p><strong>CL\u00c1USULA PRIMEIRA (Objeto):</strong><br>
+O Primeiro Outorgante cede ao Segundo Outorgante, a t\u00edtulo de aluguer, os equipamentos detalhados neste documento, garantindo o seu bom estado de funcionamento no momento da entrega.</p>
 
-        <div class="section">
-            <p><strong>CLÁUSULA SEXTA (Foro Competente):</strong><br>
-            Para dirimir quaisquer litígios emergentes da interpretação ou execução deste contrato, as partes estipulam como competente o foro da Comarca de Almada, com expressa renúncia a qualquer outro foro legal.</p>
-        </div>
+<p><strong>CL\u00c1USULA SEGUNDA (Prazo):</strong><br>
+O aluguer tem in\u00edcio na data de recolha (${startDate}) e t\u00e9rmino na data prevista de entrega (${endDate}), podendo ser prorrogado mediante acordo pr\u00e9vio e pagamento antecipado.</p>
 
-        <div class="section" style="margin-top: 20px;">
-            <p>Data de recolha: <strong>${start_date}</strong> | Tendo a data da entrega: <strong>${end_date}</strong></p>
-        </div>
+<p><strong>CL\u00c1USULA TERCEIRA:</strong><br>
+UM \u2013 Ced\u00eancia de ${quantitySets} Conjuntos (2 laterais, 1 cruzeta, 1 trav\u00e3o, 1 prancha).<br>
+DOIS \u2013 Valor de ${totalPrice} \u20ac + IVA + cau\u00e7\u00e3o de ${depositValue} \u20ac.<br>
+TR\u00caS \u2013 Multa por atraso conforme acordado.</p>
 
-        <div class="signatures">
-            <div class="signature-box">
-                <p>A PRIMEIRA OUTORGANTE</p>
-            </div>
-            <div class="signature-box">
-                <p>A SEGUNDA OUTORGANTE</p>
-            </div>
-        </div>
-    </div>
+<p><strong>CL\u00c1USULA QUARTA (Responsabilidade e Manuten\u00e7\u00e3o):</strong><br>
+O Segundo Outorgante assume total responsabilidade pela guarda, conserva\u00e7\u00e3o e correta utiliza\u00e7\u00e3o dos equipamentos, obrigando-se a restitu\u00ed-los nas mesmas condi\u00e7\u00f5es. Em caso de dano, furto ou extravio, o Segundo Outorgante indemnizar\u00e1 o Primeiro Outorgante no valor de substitui\u00e7\u00e3o integral do material, perdendo imediatamente o direito ao valor da cau\u00e7\u00e3o entregue.</p>
+
+<p><strong>CL\u00c1USULA QUINTA (Resolu\u00e7\u00e3o):</strong><br>
+O incumprimento de qualquer obriga\u00e7\u00e3o estipulada constitui motivo de resolu\u00e7\u00e3o imediata do presente contrato, reservando-se o Primeiro Outorgante o direito de recolher o equipamento de imediato, sem necessidade de aviso pr\u00e9vio ou indemniza\u00e7\u00e3o.</p>
+
+<p><strong>CL\u00c1USULA SEXTA (Foro Competente):</strong><br>
+Para dirimir quaisquer lit\u00edgios emergentes da interpreta\u00e7\u00e3o ou execu\u00e7\u00e3o deste contrato, as partes estipulam como competente o foro da Comarca de Almada, com expressa ren\u00fancia a qualquer outro foro legal.</p>
+
+<p>Data de recolha: <strong>${startDate}</strong> &nbsp; | &nbsp; Tendo a data da entrega: <strong>${endDate}</strong></p>
+
+<div class="assinaturas">
+<div class="assinatura">A PRIMEIRA OUTORGANTE</div>
+<div class="assinatura">A SEGUNDA OUTORGANTE</div>
+</div>
+
 </body>
-</html>
-    `;
+</html>`;
 
-    const printWin = window.open('', '_blank');
-    if (printWin) {
-        printWin.document.open();
-        printWin.document.write(htmlContent);
-        printWin.document.close();
+    const w = window.open('', '_blank');
+    if (w) {
+        w.document.open();
+        w.document.write(doc);
+        w.document.close();
+        w.onload = () => {
+            setTimeout(() => {
+                w.print();
+            }, 400);
+        };
     } else {
-        alert('O bloqueador de janelas pop-up está ativo. Por favor, permita a abertura de janelas para gerar o contrato.');
+        alert('Pop-up bloqueado. Permita pop-ups para imprimir o contrato.');
     }
 }
