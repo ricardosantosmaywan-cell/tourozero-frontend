@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Button } from './ui/Button';
-import { X, FileText, Edit2, Trash2, Printer } from 'lucide-react';
+import { X, FileText, Edit2, Trash2 } from 'lucide-react';
 import { useGlobalRentals } from '../data/mockDatabase';
 import { supabase } from '../lib/supabase';
-import { generateRentalContract } from '../lib/pdfGenerator';
 import { printRentalContractHTML } from '../lib/htmlContractGenerator';
 
 interface ViewRentalModalProps {
@@ -205,10 +204,7 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
                         />
                     </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-slate-800 pt-5 mb-5">
-                    <Button type="button" variant="outline" className="w-full border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300" onClick={() => generateRentalContract(rental)}>
-                        <Printer className="w-4 h-4 mr-2 text-slate-400" /> Imprimir Recibo
-                    </Button>
+                <div className="border-t border-slate-800 pt-5 mb-5">
                     <Button type="button" variant="outline" className="w-full border-amber-500/50 bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 font-semibold" onClick={() => printRentalContractHTML(rental)}>
                         <FileText className="w-4 h-4 mr-2" /> IMPRIMIR CONTRATO JURÍDICO
                     </Button>
