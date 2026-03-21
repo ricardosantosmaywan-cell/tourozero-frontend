@@ -18,7 +18,7 @@ export default function Dashboard() {
     const [currentTime, setCurrentTime] = useState(new Date());
 
     const { rentals, loading: loadingRentals, updateRental, deleteRental, refreshRentals } = useGlobalRentals();
-    const { loading: loadingProducts, refreshProducts } = useGlobalProducts();
+    const { products, loading: loadingProducts, refreshProducts } = useGlobalProducts();
     const isLoading = loadingRentals || loadingProducts;
 
     useEffect(() => {
@@ -76,79 +76,39 @@ export default function Dashboard() {
         return end < new Date();
     }
 
-    // ===== CHAMADA DIRETA AO SUPABASE (BYPASS DE QUALQUER BLOQUEIO) =====
-    const [directRentals, setDirectRentals] = useState<any[]>([]);
-    const [directError, setDirectError] = useState<string | null>(null);
+    const activeRentals = rentals.filter(r => r.status === 'active');
 
-    useEffect(() => {
-        async function fetchDirect() {
-            try {
-                // Instanciar cliente Supabase localmente para garantir ignorar imports
-                const { createClient } = await import('@supabase/supabase-js');
-                const directClient = createClient(
-                    'https://znsktlbfngiatbedtfbj.supabase.co',
-                    'sb_publishable_7a9eVVqeVSf3doAILjrqEQ_EvrcHe6t'
-                );
-
-                const { data, error } = await directClient
-                    .from('rentals')
-                    .select(`
-                        *,
-                        customers (full_name, phone, email, tax_id),
-                        rental_items (*, products (name))
-                    `)
-                    .order('pickup_date', { ascending: false });
-
-                if (error) {
-                    setDirectError(error.message);
-                } else if (data) {
-                    // Mapeamento simples igual ao do mockDatabase
-                    const mapped = data.map((r: any) => ({
-                        id: r.id,
-                        customer_id: r.customer_id,
-                        customers: r.customers || { full_name: 'Desconhecido' },
-                        pickup_date: r.pickup_date,
-                        return_date: r.return_date,
-                        total_amount: r.total_amount,
-                        status: r.status,
-                        semanas: r.semanas || 1,
-                        delivery_address: r.delivery_address,
-                        observacoes: r.observacoes,
-                        transport_value: r.transport_value || 0,
-                        deposit_value: r.deposit_value || 0,
-                        payment_status: r.payment_status || 'pending',
-                        items: r.rental_items ? r.rental_items.map((it: any) => ({
-                            name: it.products?.name || 'Item',
-                            quantity: it.quantity,
-                            price_unit: it.price_unit
-                        })) : []
-                    }));
-                    setDirectRentals(mapped);
-                }
-            } catch (err: any) {
-                setDirectError(err.message);
-            }
-        }
-        fetchDirect();
-    }, []);
-
-    const activeRentals = directRentals.filter(r => r.status === 'active');
-    
+    // Filtragens Dinâmicas da Tabela
     const displayRentals = activeRentals.filter(r => {
         const matchName = r.customers?.full_name?.toLowerCase().includes(searchTerm.toLowerCase());
-        return matchName;
+        const late = isLate(r.return_date);
+        let matchStatus = true;
+        if (filterStatus === 'ontime') matchStatus = !late;
+        if (filterStatus === 'late') matchStatus = late;
+
+        return matchName && matchStatus;
     });
 
-    const finalizeRental = (id: string) => { updateRental(id, { status: 'completed' }); };
+    // Ação: Finalizar Aluguel globalmente
+    const finalizeRental = (id: string) => {
+        updateRental(id, { status: 'completed' });
+    };
 
-    const monthlyRevenue = directRentals.reduce((acc, curr) => acc + (Number(curr.total_amount || 0) - Number(curr.deposit_value || 0) - Number(curr.transport_value || 0)), 0);
+    // Estatísticas Dinâmicas para os Cards
+    const currentMonthPrefix = new Date().toISOString().substring(0, 7);
+    const monthlyRevenue = rentals.filter(r => r.pickup_date.startsWith(currentMonthPrefix)).reduce((acc, curr) => acc + (Number(curr.total_amount || 0) - Number(curr.deposit_value || 0) - Number(curr.transport_value || 0)), 0);
 
     const stats = {
         monthlyRevenue,
         activeCustomers: displayRentals.length,
-        stockStatus: { total: 0, rented: 0 }
+        stockStatus: {
+            total: products.filter(p => p.name.toLowerCase().includes('andaime')).reduce((acc, p) => acc + p.stock_total, 0),
+            rented: activeRentals.reduce((acc, curr) => {
+                const andaimesRented = curr.items?.filter((it: any) => it.name.toLowerCase().includes('andaime')).reduce((sum: number, it: any) => sum + it.quantity, 0) || 0;
+                return acc + andaimesRented;
+            }, 0)
+        }
     };
-    // ====================================================================
 
     const now = new Date();
     const currentMonthStr = now.toLocaleDateString('pt-BR', { month: 'long' });
@@ -174,12 +134,6 @@ export default function Dashboard() {
                     {currentTime.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                 </div>
             </div>
-
-            {directError && (
-                <div className="bg-red-500/10 border border-red-500/20 text-red-500 p-4 rounded-lg">
-                    <strong>Erro de Ligação ao Supabase:</strong> {directError}
-                </div>
-            )}
 
             <div className="grid gap-4 md:grid-cols-3">
                 {/* Faturamento */}
