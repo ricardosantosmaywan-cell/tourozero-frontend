@@ -5,12 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '../components/ui/Table';
-import { Euro, Users, Package, Clock, AlertCircle, Plus, CheckCircle2, Search, Edit2, Eye, AlertTriangle, FileText, Loader2, RefreshCw } from 'lucide-react';
+import { Euro, Users, Package, Clock, AlertCircle, Plus, CheckCircle2, Search, Edit2, Eye, AlertTriangle, FileText, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { BookingModal } from '../components/BookingModal';
 import { ClientModal } from '../components/ClientModal';
 import { ViewRentalModal } from '../components/ViewRentalModal';
-import { useGlobalRentals, useGlobalProducts, useGlobalCustomers } from '../data/mockDatabase';
+import { useGlobalRentals, useGlobalProducts } from '../data/mockDatabase';
 import { generateRentalContract } from '../lib/pdfGenerator';
 
 export default function Dashboard() {
@@ -19,8 +19,7 @@ export default function Dashboard() {
 
     const { rentals, loading: loadingRentals, updateRental, deleteRental, refreshRentals } = useGlobalRentals();
     const { products, loading: loadingProducts, refreshProducts } = useGlobalProducts();
-    const { refreshCustomers, loading: loadingCustomers } = useGlobalCustomers();
-    const isLoading = loadingRentals || loadingProducts || loadingCustomers;
+    const isLoading = loadingRentals || loadingProducts;
 
     useEffect(() => {
         refreshRentals();
@@ -122,25 +121,9 @@ export default function Dashboard() {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-50">
-                <div className="relative z-50">
-                    <div className="flex flex-wrap items-center gap-3 relative z-50">
-                        <h1 className="text-3xl font-bold tracking-tight text-slate-50">Painel de Controlo</h1>
-                        <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="flex items-center bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border border-amber-500/50 h-8 px-3 z-50 relative shadow-sm transition-colors"
-                            onClick={() => {
-                                refreshRentals();
-                                refreshProducts();
-                                refreshCustomers();
-                            }}
-                            disabled={isLoading}
-                        >
-                            <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-                            Atualizar Dados
-                        </Button>
-                    </div>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight text-slate-50">Painel de Controlo</h1>
                     <p className="text-slate-400 mt-1">Bem-vindo(a) ao Tourozero</p>
                 </div>
 
