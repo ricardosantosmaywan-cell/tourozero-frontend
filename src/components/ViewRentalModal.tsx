@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Button } from './ui/Button';
-import { X, FileText, Edit2, Trash2 } from 'lucide-react';
+import { X, FileText, Edit2, Trash2, Printer } from 'lucide-react';
 import { useGlobalRentals } from '../data/mockDatabase';
 import { supabase } from '../lib/supabase';
+import { generateRentalContract } from '../lib/pdfGenerator';
+import { printRentalContractHTML } from '../lib/htmlContractGenerator';
 
 interface ViewRentalModalProps {
     isOpen: boolean;
@@ -202,6 +204,14 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
                             onChange={(e) => setNotes(e.target.value)}
                         />
                     </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-slate-800 pt-5 mb-5">
+                    <Button type="button" variant="outline" className="w-full border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300" onClick={() => generateRentalContract(rental)}>
+                        <Printer className="w-4 h-4 mr-2 text-slate-400" /> Imprimir Recibo
+                    </Button>
+                    <Button type="button" className="w-full bg-amber-600 hover:bg-amber-500 text-slate-50 font-semibold shadow-lg shadow-amber-900/20" onClick={() => printRentalContractHTML(rental)}>
+                        <FileText className="w-4 h-4 mr-2" /> Imprimir Contrato Oficial
+                    </Button>
                 </div>
 
                 <div className="flex items-center justify-between border-t border-slate-800 pt-5">
