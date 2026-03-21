@@ -1,4 +1,4 @@
-import type { Rental } from '../data/mockDatabase';
+import type { Rental } from '../data/api';
 
 export function printRentalContractHTML(rental: Rental) {
     if (!rental) return;

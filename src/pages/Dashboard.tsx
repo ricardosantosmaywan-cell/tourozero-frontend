@@ -10,7 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { BookingModal } from '../components/BookingModal';
 import { ClientModal } from '../components/ClientModal';
 import { ViewRentalModal } from '../components/ViewRentalModal';
-import { useGlobalRentals, useGlobalProducts } from '../data/mockDatabase';
+import { useGlobalRentals, useGlobalProducts } from '../data/api';
 import { printRentalContractHTML } from '../lib/htmlContractGenerator';
 
 export default function Dashboard() {

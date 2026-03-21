@@ -4,8 +4,8 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
 import { Search, Plus, Edit2, Trash2, X, Eye, User, History, Euro, Clock, CheckCircle2, ExternalLink, RotateCw } from 'lucide-react';
-import { useGlobalCustomers } from '../data/mockDatabase';
-import type { Customer } from '../data/mockDatabase';
+import { useGlobalCustomers } from '../data/api';
+import type { Customer } from '../data/api';
 import { ClientModal } from '../components/ClientModal';
 
 export default function Customers() {
@@ -63,7 +63,7 @@ export default function Customers() {
 
     async function handleDelete(id: string) {
         if (!confirm('Tem certeza que deseja excluir este cliente?')) return;
-        deleteCustomer(id);
+        await deleteCustomer(id);
     }
 
     return (

@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import { X, PlusCircle, Trash, CheckCircle2 } from 'lucide-react';
-import { useGlobalRentals, useGlobalCustomers, useGlobalProducts } from '../data/mockDatabase';
-import type { Customer } from '../data/mockDatabase';
+import { useGlobalRentals, useGlobalCustomers, useGlobalProducts } from '../data/api';
+import type { Customer } from '../data/api';
 import { supabase } from '../lib/supabase';
 
 interface BookingModalProps {

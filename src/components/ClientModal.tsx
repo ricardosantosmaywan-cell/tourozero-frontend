@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import { X } from 'lucide-react';
-import { useGlobalCustomers } from '../data/mockDatabase';
-import type { Customer } from '../data/mockDatabase';
+import { useGlobalCustomers } from '../data/api';
+import type { Customer } from '../data/api';
 
 interface ClientModalProps {
     isOpen: boolean;
@@ -35,7 +35,7 @@ export function ClientModal({ isOpen, onClose, customerToEdit }: ClientModalProp
         try {
             if (customerToEdit && formData.id) {
                 // Modo de Edição
-                updateCustomer(formData.id, formData);
+                await updateCustomer(formData.id, formData);
             } else {
                 // Modo de Criação: Verificar NIF Duplicado
                 if (formData.tax_id) {
@@ -45,7 +45,7 @@ export function ClientModal({ isOpen, onClose, customerToEdit }: ClientModalProp
                     }
                 }
 
-                addCustomer(formData as Omit<Customer, 'id'>);
+                await addCustomer(formData as Omit<Customer, 'id'>);
             }
 
             onClose();

@@ -4,8 +4,8 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
 import { Search, Plus, Edit2, Trash2, X, AlertTriangle, CheckCircle2 } from 'lucide-react';
-import { useGlobalProducts, useGlobalRentals } from '../data/mockDatabase';
-import type { Product } from '../data/mockDatabase';
+import { useGlobalProducts, useGlobalRentals } from '../data/api';
+import type { Product } from '../data/api';
 
 export default function Inventory() {
     // Liga directamente à Store Global MOCK
@@ -43,7 +43,7 @@ export default function Inventory() {
 
     async function handleDelete(id: string) {
         if (!confirm('Tem certeza que deseja excluir este produto?')) return;
-        deleteProduct(id);
+        await deleteProduct(id);
     }
 
     async function handleSave(e: React.FormEvent) {
@@ -52,11 +52,11 @@ export default function Inventory() {
 
         try {
             if (isEditing && formData.id) {
-                // Mock Update
-                updateProduct(formData.id, { ...formData, available: formData.stock_total } as Product);
+                // Real Update
+                await updateProduct(formData.id, { ...formData, available: formData.stock_total } as Product);
             } else {
-                // Mock Insert
-                addProduct({
+                // Real Insert
+                await addProduct({
                     ...formData,
                     available: formData.stock_total
                 } as Omit<Product, 'id'>);

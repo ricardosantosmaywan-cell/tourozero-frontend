@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from './ui/Button';
 import { X, FileText, Edit2, Trash2 } from 'lucide-react';
-import { useGlobalRentals } from '../data/mockDatabase';
+import { useGlobalRentals } from '../data/api';
 import { supabase } from '../lib/supabase';
 import { printRentalContractHTML } from '../lib/htmlContractGenerator';
 

@@ -3,7 +3,7 @@ import { Search, ChevronLeft, ChevronRight, Eye, Edit2, Trash2, FileText, Circle
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
-import { useGlobalRentals } from '../data/mockDatabase';
+import { useGlobalRentals } from '../data/api';
 import { printRentalContractHTML } from '../lib/htmlContractGenerator';
 import { BookingModal } from '../components/BookingModal';
 import { ViewRentalModal } from '../components/ViewRentalModal';
@@ -61,9 +61,9 @@ export default function Rentals() {
         setIsViewModalOpen(true);
     };
 
-    const handleDelete = (id: string) => {
+    const handleDelete = async (id: string) => {
         if (window.confirm("Tem certeza que deseja eliminar este agendamento? Esta ação não pode ser desfeita.")) {
-            deleteRental(id);
+            await deleteRental(id);
         }
     };
 

@@ -3,7 +3,7 @@ import { Home, Users, CalendarDays, Package, PieChart, LogOut, RefreshCw } from 
 import { cn } from '../lib/utils';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { useGlobalRentals, useGlobalProducts, useGlobalCustomers } from '../data/mockDatabase';
+import { useGlobalRentals, useGlobalProducts, useGlobalCustomers } from '../data/api';
 
 interface SidebarProps {
     isOpen: boolean;

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useGlobalRentals, useGlobalProducts } from '../data/mockDatabase';
+import { useGlobalRentals, useGlobalProducts } from '../data/api';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Euro, TrendingUp, Filter, Printer, Truck } from 'lucide-react';
 import { Input } from '../components/ui/Input';
