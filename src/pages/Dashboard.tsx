@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '../components/ui/Table';
-import { Euro, Users, Package, Clock, AlertCircle, Plus, CheckCircle2, Search, Edit2, Eye, AlertTriangle, FileText } from 'lucide-react';
+import { Euro, Users, Package, Clock, AlertCircle, Plus, CheckCircle2, Search, Edit2, Eye, AlertTriangle, FileText, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { BookingModal } from '../components/BookingModal';
 import { ClientModal } from '../components/ClientModal';
@@ -17,8 +17,9 @@ export default function Dashboard() {
     const navigate = useNavigate();
     const [currentTime, setCurrentTime] = useState(new Date());
 
-    const { rentals, updateRental, deleteRental, refreshRentals } = useGlobalRentals();
-    const { products, refreshProducts } = useGlobalProducts();
+    const { rentals, loading: loadingRentals, updateRental, deleteRental, refreshRentals } = useGlobalRentals();
+    const { products, loading: loadingProducts, refreshProducts } = useGlobalProducts();
+    const isLoading = loadingRentals || loadingProducts;
 
     useEffect(() => {
         refreshRentals();
@@ -142,48 +143,74 @@ export default function Dashboard() {
                         <Euro className="h-4 w-4 text-emerald-400" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-3xl font-bold text-emerald-400">{stats.monthlyRevenue.toFixed(2)} €</div>
-                        <p className="text-xs text-slate-500 mt-1">Soma dinâmica do mês</p>
+                        {isLoading ? (
+                            <div className="flex items-center gap-2 text-slate-500">
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                                <span className="text-sm">Carregando...</span>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="text-3xl font-bold text-emerald-400">{stats.monthlyRevenue.toFixed(2)} €</div>
+                                <p className="text-xs text-slate-500 mt-1">Soma dinâmica do mês</p>
+                            </>
+                        )}
                     </CardContent>
                 </Card>
 
-                {/* Clientes Ativos */}
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                         <CardTitle className="text-sm font-medium text-slate-400">Clientes Ativos</CardTitle>
                         <Users className="h-4 w-4 text-amber-500" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-3xl font-bold text-slate-50 flex items-baseline gap-2">
-                            {stats.activeCustomers}
-                            <span className="text-sm font-normal text-slate-400">
-                                ({displayRentals.filter(r => !isLate(r.return_date)).length} em dia, {displayRentals.filter(r => isLate(r.return_date)).length} atrasados)
-                            </span>
-                        </div>
-                        <p className="text-xs text-slate-500 mt-1">Com contratos em curso</p>
+                        {isLoading ? (
+                            <div className="flex items-center gap-2 text-slate-500">
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                                <span className="text-sm">Carregando...</span>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="text-3xl font-bold text-slate-50 flex items-baseline gap-2">
+                                    {stats.activeCustomers}
+                                    <span className="text-sm font-normal text-slate-400">
+                                        ({displayRentals.filter(r => !isLate(r.return_date)).length} em dia, {displayRentals.filter(r => isLate(r.return_date)).length} atrasados)
+                                    </span>
+                                </div>
+                                <p className="text-xs text-slate-500 mt-1">Com contratos em curso</p>
+                            </>
+                        )}
                     </CardContent>
                 </Card>
 
                 {/* Estoque */}
-                <Card className={`${(stats.stockStatus.total > 0 && ((stats.stockStatus.total - stats.stockStatus.rented) / stats.stockStatus.total) < 0.1)
+                <Card className={`${(!isLoading && stats.stockStatus.total > 0 && ((stats.stockStatus.total - stats.stockStatus.rented) / stats.stockStatus.total) < 0.1)
                     ? 'bg-gradient-to-br from-red-950/40 to-orange-900/30 border-red-500/50'
                     : ''
                     }`}>
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                         <CardTitle className="text-sm font-medium text-slate-400">Stock de Andaimes</CardTitle>
-                        {(stats.stockStatus.total > 0 && ((stats.stockStatus.total - stats.stockStatus.rented) / stats.stockStatus.total) < 0.1) ? (
+                        {(!isLoading && stats.stockStatus.total > 0 && ((stats.stockStatus.total - stats.stockStatus.rented) / stats.stockStatus.total) < 0.1) ? (
                             <AlertTriangle className="h-4 w-4 text-red-500 animate-pulse" />
                         ) : (
                             <Package className="h-4 w-4 text-blue-400" />
                         )}
                     </CardHeader>
                     <CardContent>
-                        <div className={`text-3xl font-bold ${(stats.stockStatus.total > 0 && ((stats.stockStatus.total - stats.stockStatus.rented) / stats.stockStatus.total) < 0.1) ? 'text-red-400' : 'text-slate-50'}`}>
-                            {stats.stockStatus.total - stats.stockStatus.rented}
-                        </div>
-                        <p className="text-xs text-slate-500 mt-1">
-                            Disponíveis de {stats.stockStatus.total} ({stats.stockStatus.rented} alugados)
-                        </p>
+                        {isLoading ? (
+                            <div className="flex items-center gap-2 text-slate-500">
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                                <span className="text-sm">Carregando...</span>
+                            </div>
+                        ) : (
+                            <>
+                                <div className={`text-3xl font-bold ${(stats.stockStatus.total > 0 && ((stats.stockStatus.total - stats.stockStatus.rented) / stats.stockStatus.total) < 0.1) ? 'text-red-400' : 'text-slate-50'}`}>
+                                    {stats.stockStatus.total - stats.stockStatus.rented}
+                                </div>
+                                <p className="text-xs text-slate-500 mt-1">
+                                    Disponíveis de {stats.stockStatus.total} ({stats.stockStatus.rented} alugados)
+                                </p>
+                            </>
+                        )}
                     </CardContent>
                 </Card>
             </div>

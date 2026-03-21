@@ -61,12 +61,15 @@ export interface Rental {
 
 export function useGlobalCustomers() {
     const [customers, setCustomers] = useState<Customer[]>([]);
+    const [loading, setLoading] = useState(true);
 
     async function fetchCustomers() {
+        setLoading(true);
         const { data, error } = await supabase.from('customers').select('*').order('created_at', { ascending: false });
         if (!error && data) {
             setCustomers(data as Customer[]);
         }
+        setLoading(false);
     }
 
     useEffect(() => {
@@ -123,6 +126,7 @@ export function useGlobalCustomers() {
 
     return {
         customers,
+        loading,
         addCustomer,
         updateCustomer,
         deleteCustomer,
@@ -136,12 +140,15 @@ export function useGlobalCustomers() {
 
 export function useGlobalProducts() {
     const [products, setProducts] = useState<Product[]>([]);
+    const [loading, setLoading] = useState(true);
 
     async function fetchProducts() {
+        setLoading(true);
         const { data, error } = await supabase.from('products').select('*').order('name');
         if (!error && data) {
             setProducts(data as Product[]);
         }
+        setLoading(false);
     }
 
     useEffect(() => {
@@ -182,6 +189,7 @@ export function useGlobalProducts() {
 
     return {
         products,
+        loading,
         addProduct,
         updateProduct,
         deleteProduct,
@@ -195,8 +203,10 @@ export function useGlobalProducts() {
 
 export function useGlobalRentals() {
     const [rentals, setRentals] = useState<Rental[]>([]);
+    const [loading, setLoading] = useState(true);
 
     async function fetchRentals() {
+        setLoading(true);
         // Nested JOIN no Supabase (Rentals -> Customers, Rentals -> Rental Items -> Products)
         const { data, error } = await supabase
             .from('rentals')
@@ -234,6 +244,7 @@ export function useGlobalRentals() {
             }));
             setRentals(mapped);
         }
+        setLoading(false);
     }
 
     useEffect(() => {
@@ -400,6 +411,7 @@ export function useGlobalRentals() {
 
     return {
         rentals,
+        loading,
         addRental,
         updateRental,
         deleteRental,

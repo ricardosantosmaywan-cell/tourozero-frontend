@@ -13,6 +13,12 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
             'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
             'Pragma': 'no-cache',
             'Expires': '0',
+        },
+        fetch: (url: RequestInfo | URL, options?: RequestInit) => {
+            const urlStr = typeof url === 'string' ? url : url instanceof URL ? url.toString() : (url as Request).url;
+            const separator = urlStr.includes('?') ? '&' : '?';
+            const bustUrl = `${urlStr}${separator}_cb=${Date.now()}`;
+            return fetch(bustUrl, options);
         }
     }
 });
