@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -104,6 +104,10 @@ export default function Dashboard() {
         }
     };
 
+    const now = new Date();
+    const currentMonthStr = now.toLocaleDateString('pt-BR', { month: 'long' });
+    const dynamicFaturamentoTitle = `Faturamento ${currentMonthStr.charAt(0).toUpperCase() + currentMonthStr.slice(1)}/${now.getFullYear()}`;
+
     useEffect(() => {
         const timer = setInterval(() => setCurrentTime(new Date()), 1000);
         return () => clearInterval(timer);
@@ -129,7 +133,7 @@ export default function Dashboard() {
                 {/* Faturamento */}
                 <Card className="bg-gradient-to-br from-slate-900 to-slate-950">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium text-slate-400">Faturamento Fev/2026</CardTitle>
+                        <CardTitle className="text-sm font-medium text-slate-400">{dynamicFaturamentoTitle}</CardTitle>
                         <Euro className="h-4 w-4 text-emerald-400" />
                     </CardHeader>
                     <CardContent>
@@ -195,7 +199,11 @@ export default function Dashboard() {
                                             contentStyle={{ backgroundColor: '#020617', borderColor: '#1e293b', borderRadius: '8px', color: '#f8fafc' }}
                                             itemStyle={{ color: '#10b981', fontWeight: 'bold' }}
                                         />
-                                        <Bar dataKey="Faturamento" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                                        <Bar dataKey="Faturamento" radius={[4, 4, 0, 0]} maxBarSize={40}>
+                                            {chartData.map((_entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={index === chartData.length - 1 ? '#10b981' : '#334155'} />
+                                            ))}
+                                        </Bar>
                                     </BarChart>
                                 </ResponsiveContainer>
                             ) : (
