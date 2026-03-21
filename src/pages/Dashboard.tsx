@@ -11,7 +11,7 @@ import { BookingModal } from '../components/BookingModal';
 import { ClientModal } from '../components/ClientModal';
 import { ViewRentalModal } from '../components/ViewRentalModal';
 import { useGlobalRentals, useGlobalProducts } from '../data/mockDatabase';
-import { generateRentalContract } from '../lib/pdfGenerator';
+import { printRentalContractHTML } from '../lib/htmlContractGenerator';
 
 export default function Dashboard() {
     const navigate = useNavigate();
@@ -386,7 +386,8 @@ export default function Dashboard() {
                                                         variant="ghost"
                                                         size="sm"
                                                         className="text-slate-400 hover:text-slate-300 hover:bg-slate-800/50 border border-transparent hover:border-slate-700/50"
-                                                        onClick={() => generateRentalContract(rental)}
+                                                        onClick={() => printRentalContractHTML(rental)}
+                                                        title="Imprimir Contrato em A4"
                                                     >
                                                         <FileText className="w-4 h-4 mr-1.5" /> Contrato
                                                     </Button>

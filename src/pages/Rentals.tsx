@@ -4,7 +4,7 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
 import { useGlobalRentals } from '../data/mockDatabase';
-import { generateRentalContract } from '../lib/pdfGenerator';
+import { printRentalContractHTML } from '../lib/htmlContractGenerator';
 import { BookingModal } from '../components/BookingModal';
 import { ViewRentalModal } from '../components/ViewRentalModal';
 
@@ -156,8 +156,8 @@ export default function Rentals() {
                                             variant="ghost"
                                             size="sm"
                                             className="text-slate-400 hover:text-slate-300 hover:bg-slate-800/50 border border-transparent"
-                                            onClick={() => generateRentalContract(rental)}
-                                            title="Imprimir Contrato PDF"
+                                            onClick={() => printRentalContractHTML(rental)}
+                                            title="Imprimir Contrato em A4"
                                         >
                                             <FileText className="w-4 h-4" />
                                         </Button>
