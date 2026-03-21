@@ -12,6 +12,7 @@ import { ClientModal } from '../components/ClientModal';
 import { ViewRentalModal } from '../components/ViewRentalModal';
 import { useGlobalRentals, useGlobalProducts } from '../data/api';
 import { printRentalContractHTML } from '../lib/htmlContractGenerator';
+import { supabaseUrl } from '../lib/supabase';
 
 export default function Dashboard() {
     const navigate = useNavigate();
@@ -20,6 +21,7 @@ export default function Dashboard() {
     const { rentals, loading: loadingRentals, updateRental, deleteRental, refreshRentals } = useGlobalRentals();
     const { products, loading: loadingProducts, refreshProducts } = useGlobalProducts();
     const isLoading = loadingRentals || loadingProducts;
+
 
     useEffect(() => {
         refreshRentals();
@@ -133,6 +135,11 @@ export default function Dashboard() {
                     <span className="text-slate-300 mx-2">|</span>
                     {currentTime.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                 </div>
+            </div>
+
+            <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-lg flex items-center gap-3">
+                <AlertCircle className="w-5 h-5 text-amber-500" />
+                <p className="text-amber-500 font-medium">Conectado ao projeto: <span className="text-slate-50">{supabaseUrl}</span></p>
             </div>
 
             <div className="grid gap-4 md:grid-cols-3">
