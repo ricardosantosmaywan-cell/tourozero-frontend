@@ -389,7 +389,7 @@ export default function Dashboard() {
                                                         onClick={() => printRentalContractHTML(rental)}
                                                         title="Imprimir Contrato em A4"
                                                     >
-                                                        <FileText className="w-4 h-4 mr-1.5" /> Contrato
+                                                        <FileText className="w-4 h-4 mr-1.5" /> 📄 Recibo + Contrato
                                                     </Button>
                                                     <Button
                                                         variant="ghost"
