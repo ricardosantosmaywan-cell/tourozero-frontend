@@ -24,7 +24,7 @@ export default function Login() {
             await signIn(email, password);
             navigate('/');
         } catch (err: any) {
-            setError(err.message || 'Erro ao fazer login. Verifique as suas credenciais.');
+            setError(err.message || 'Erro ao fazer login. Verifique as credenciais.');
         } finally {
             setLoading(false);
         }
@@ -57,7 +57,7 @@ export default function Login() {
                             <Input
                                 type="email"
                                 required
-                                placeholder="seu@email.com"
+                                placeholder="admin@tourozero.com"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                             />
