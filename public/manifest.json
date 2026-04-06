@@ -1,18 +1,45 @@
 {
   "name": "Tourozero",
   "short_name": "Tourozero",
-  "description": "Painel de Controlo Tourozero",
+  "description": "Painel de Controlo Tourozero - Gestão e Alugueres",
   "start_url": "/",
   "display": "standalone",
-  "orientation": "landscape",
   "background_color": "#020617",
   "theme_color": "#020617",
   "icons": [
     {
-      "src": "/vite.svg",
-      "sizes": "192x192 512x512",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "form_factor": "narrow",
+      "label": "Tourozero Mobile"
+    },
+    {
+      "src": "/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "form_factor": "wide",
+      "label": "Tourozero Desktop"
     }
   ]
 }

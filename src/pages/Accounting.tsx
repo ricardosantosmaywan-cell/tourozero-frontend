@@ -33,13 +33,18 @@ export default function Accounting() {
         }
         setFilteredRentals(filteredData);
 
-        // 2. Faturamento (Exclui a Caução e Transporte)
-        const revenue = filteredData.reduce((acc, curr) => acc + (Number(curr.total_amount || 0) - Number(curr.deposit_value || 0) - Number(curr.transport_value || 0)), 0);
-        setTotalRevenue(revenue);
+        // 2. Faturamento (Exclui a Caução e Transporte) - Agora focado apenas em Materiais
+        const materialsRevenue = filteredData.reduce((acc, curr) => {
+            const total = Number(curr.total_amount || 0);
+            const transport = Number(curr.transport_value || 0);
+            const deposit = Number(curr.deposit_value || 0);
+            return acc + (total - transport - deposit);
+        }, 0);
+        setTotalRevenue(materialsRevenue);
 
         // 2.1 Transporte 
-        const transportParams = filteredData.reduce((acc, curr) => acc + Number(curr.transport_value || 0), 0);
-        setTotalTransport(transportParams);
+        const transportTotal = filteredData.reduce((acc, curr) => acc + Number(curr.transport_value || 0), 0);
+        setTotalTransport(transportTotal);
 
         // 3. Produtos Mais Alugados (Top 5)
         const productStats: Record<string, number> = {};
@@ -112,7 +117,7 @@ export default function Accounting() {
             <div className="grid gap-6 md:grid-cols-3 print:hidden">
                 <Card className="bg-gradient-to-br from-slate-900 to-slate-950 border-emerald-500/20">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-lg font-medium text-slate-300">Total Faturado</CardTitle>
+                        <CardTitle className="text-lg font-medium text-slate-300">Faturado (Materiais)</CardTitle>
                         <Euro className="h-6 w-6 text-emerald-400" />
                     </CardHeader>
                     <CardContent>
@@ -121,8 +126,8 @@ export default function Accounting() {
                         ) : (
                             <>
                                 <div className="text-4xl font-bold text-emerald-400">{totalRevenue.toFixed(2)} €</div>
-                                <p className="text-sm text-slate-400 mt-2">
-                                    No período selecionado {startDate || endDate ? '(Filtrado)' : '(Todo período)'}
+                                <p className="text-xs text-slate-400 mt-2">
+                                    Valor base para cálculo de comissões. (Exclui transporte e caução)
                                 </p>
                             </>
                         )}
@@ -131,7 +136,7 @@ export default function Accounting() {
 
                 <Card className="bg-slate-900 border-slate-800 border-b-amber-500/50">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-lg font-medium text-slate-300">Custos de Transporte</CardTitle>
+                        <CardTitle className="text-lg font-medium text-slate-300">Serviços de Transporte</CardTitle>
                         <Truck className="h-6 w-6 text-amber-500" />
                     </CardHeader>
                     <CardContent>
@@ -227,7 +232,7 @@ export default function Accounting() {
                         <TableRow className="print:border-b-2 print:border-black">
                             <TableHead className="print:text-black">Data do Aluguer</TableHead>
                             <TableHead className="print:text-black">Nome do Cliente</TableHead>
-                            <TableHead className="text-right print:text-black">Valor Líquido (€)</TableHead>
+                            <TableHead className="text-right print:text-black">Materiais (€)</TableHead>
                             <TableHead className="text-right print:text-black">Transporte (€)</TableHead>
                             <TableHead className="text-right print:text-black">Prop. (80%)</TableHead>
                             <TableHead className="text-right print:text-black text-blue-400">Comissão (20%)</TableHead>

@@ -172,22 +172,25 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
                                     <div className="text-sm text-slate-500 italic pb-2">Sem produtos adicionados validamente.</div>
                                 )}
                             </div>
-                            <div className="mt-4 pt-3 border-t border-slate-700/50 flex flex-col gap-1.5">
-                                <div className="flex justify-between items-center text-sm text-slate-400">
-                                    <span>Valor dos Materiais:</span>
-                                    <span>{Number((liveTotal || 0) - (liveTransport || 0) - (liveDeposit || 0)).toFixed(2)} €</span>
+                            <div className="mt-4 pt-4 border-t border-slate-700/50 flex flex-col gap-2 bg-slate-900/40 p-4 rounded-lg">
+                                <div className="flex justify-between items-center text-sm">
+                                    <span className="text-slate-400">Valor dos Materiais:</span>
+                                    <span className="font-semibold text-emerald-400">{Number((liveTotal || 0) - (liveTransport || 0) - (liveDeposit || 0)).toFixed(2)} €</span>
                                 </div>
-                                <div className="flex justify-between items-center text-sm text-slate-400">
-                                    <span>Serviço de Transporte:</span>
-                                    <span>{Number(liveTransport || 0).toFixed(2)} €</span>
+                                <div className="flex justify-between items-center text-sm">
+                                    <span className="text-slate-400">Serviço de Transporte:</span>
+                                    <span className="font-semibold text-amber-500">{Number(liveTransport || 0).toFixed(2)} €</span>
                                 </div>
-                                <div className="flex justify-between items-center text-sm text-slate-400">
-                                    <span>Valor de Caução (Garantia):</span>
-                                    <span>{Number(liveDeposit || 0).toFixed(2)} €</span>
+                                <div className="flex justify-between items-center text-sm">
+                                    <span className="text-slate-400">Valor de Caução (Garantia Reembolsável):</span>
+                                    <span className="font-medium text-blue-400 italic">{Number(liveDeposit || 0).toFixed(2)} €</span>
                                 </div>
-                                <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-700/50">
-                                    <span className="font-semibold text-slate-300">Total Efetivo a Pagar</span>
-                                    <span className="text-lg font-bold text-amber-500">{Number(liveTotal).toFixed(2)} €</span>
+                                <div className="flex justify-between items-center mt-3 pt-3 border-t border-slate-700/50">
+                                    <div className="flex flex-col">
+                                        <span className="text-sm font-bold text-slate-100">TOTAL FINAL (Serviços + Caução)</span>
+                                        <span className="text-[10px] text-slate-500 uppercase">Valor total pago pelo cliente</span>
+                                    </div>
+                                    <span className="text-2xl font-black text-amber-500">{Number(liveTotal).toFixed(2)} €</span>
                                 </div>
                             </div>
                         </div>
