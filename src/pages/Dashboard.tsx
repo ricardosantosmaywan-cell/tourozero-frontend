@@ -62,8 +62,8 @@ export default function Dashboard() {
         const lastMonthPrefix = lastMonthDate.toISOString().substring(0, 7);
         const lastMonthName = lastMonthDate.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
 
-        const lastRev = rentals.filter(r => r.pickup_date.startsWith(lastMonthPrefix) && r.payment_status === 'paid').reduce((acc, curr) => acc + (curr.total_amount || 0), 0);
-        const currRev = rentals.filter(r => r.pickup_date.startsWith(currentMonthPrefix) && r.payment_status === 'paid').reduce((acc, curr) => acc + (curr.total_amount || 0), 0);
+        const lastRev = rentals.filter(r => r.pickup_date.startsWith(lastMonthPrefix) && r.payment_status === 'paid').reduce((acc, curr) => acc + (curr.materials_value || 0), 0);
+        const currRev = rentals.filter(r => r.pickup_date.startsWith(currentMonthPrefix) && r.payment_status === 'paid').reduce((acc, curr) => acc + (curr.materials_value || 0), 0);
 
         return [
             { name: lastMonthName, Faturamento: lastRev },
@@ -97,8 +97,8 @@ export default function Dashboard() {
 
     // Estatísticas Dinâmicas para os Cards
     const currentMonthPrefix = new Date().toISOString().substring(0, 7);
-    const monthlyRevenue = rentals.filter(r => r.pickup_date.startsWith(currentMonthPrefix) && r.payment_status === 'paid').reduce((acc, curr) => acc + (curr.total_amount || 0), 0);
-    const pendingRevenue = rentals.filter(r => r.pickup_date.startsWith(currentMonthPrefix) && r.payment_status === 'pending').reduce((acc, curr) => acc + (curr.total_amount || 0), 0);
+    const monthlyRevenue = rentals.filter(r => r.pickup_date.startsWith(currentMonthPrefix) && r.payment_status === 'paid').reduce((acc, curr) => acc + (curr.materials_value || 0), 0);
+    const pendingRevenue = rentals.filter(r => r.pickup_date.startsWith(currentMonthPrefix) && r.payment_status === 'pending').reduce((acc, curr) => acc + (curr.materials_value || 0), 0);
 
     const stats = {
         monthlyRevenue,
