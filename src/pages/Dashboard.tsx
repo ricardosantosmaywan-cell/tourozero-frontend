@@ -62,8 +62,8 @@ export default function Dashboard() {
         const lastMonthPrefix = lastMonthDate.toISOString().substring(0, 7);
         const lastMonthName = lastMonthDate.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
 
-        const lastRev = rentals.filter(r => r.pickup_date.startsWith(lastMonthPrefix)).reduce((acc, curr) => acc + (Number(curr.total_amount || 0) - Number(curr.deposit_value || 0) - Number(curr.transport_value || 0)), 0);
-        const currRev = rentals.filter(r => r.pickup_date.startsWith(currentMonthPrefix)).reduce((acc, curr) => acc + (Number(curr.total_amount || 0) - Number(curr.deposit_value || 0) - Number(curr.transport_value || 0)), 0);
+        const lastRev = rentals.filter(r => r.pickup_date.startsWith(lastMonthPrefix) && r.payment_status === 'paid').reduce((acc, curr) => acc + (curr.total_amount || 0), 0);
+        const currRev = rentals.filter(r => r.pickup_date.startsWith(currentMonthPrefix) && r.payment_status === 'paid').reduce((acc, curr) => acc + (curr.total_amount || 0), 0);
 
         return [
             { name: lastMonthName, Faturamento: lastRev },
@@ -97,10 +97,12 @@ export default function Dashboard() {
 
     // Estatísticas Dinâmicas para os Cards
     const currentMonthPrefix = new Date().toISOString().substring(0, 7);
-    const monthlyRevenue = rentals.filter(r => r.pickup_date.startsWith(currentMonthPrefix)).reduce((acc, curr) => acc + (Number(curr.total_amount || 0) - Number(curr.deposit_value || 0) - Number(curr.transport_value || 0)), 0);
+    const monthlyRevenue = rentals.filter(r => r.pickup_date.startsWith(currentMonthPrefix) && r.payment_status === 'paid').reduce((acc, curr) => acc + (curr.total_amount || 0), 0);
+    const pendingRevenue = rentals.filter(r => r.pickup_date.startsWith(currentMonthPrefix) && r.payment_status === 'pending').reduce((acc, curr) => acc + (curr.total_amount || 0), 0);
 
     const stats = {
         monthlyRevenue,
+        pendingRevenue,
         activeCustomers: displayRentals.length,
         stockStatus: {
             total: products.filter(p => p.name.toLowerCase().includes('andaime')).reduce((acc, p) => acc + p.stock_total, 0),
@@ -151,8 +153,16 @@ export default function Dashboard() {
                             </div>
                         ) : (
                             <>
-                                <div className="text-3xl font-bold text-emerald-400">{stats.monthlyRevenue.toFixed(2)} €</div>
-                                <p className="text-xs text-slate-500 mt-1">Soma dinâmica do mês</p>
+                                <div className="text-4xl font-bold text-emerald-400">{stats.monthlyRevenue.toFixed(2)} €</div>
+                                <p className="text-xs text-slate-400 mt-2">Dinheiro em caixa (Pago)</p>
+                                {stats.pendingRevenue > 0 && (
+                                    <div className="mt-3 pt-3 border-t border-slate-800">
+                                        <div className="flex items-center justify-between text-xs">
+                                            <span className="text-slate-500">A Receber (Pendente):</span>
+                                            <span className="font-bold text-amber-500">{stats.pendingRevenue.toFixed(2)} €</span>
+                                        </div>
+                                    </div>
+                                )}
                             </>
                         )}
                     </CardContent>
@@ -349,7 +359,7 @@ export default function Dashboard() {
                                                     )}
                                                 </TableCell>
                                                 <TableCell className="font-semibold text-emerald-400">
-                                                    {(Number(rental.total_amount || 0) - Number(rental.deposit_value || 0) - Number(rental.transport_value || 0)).toFixed(2)} €
+                                                    {(Number(rental.total_amount || 0)).toFixed(2)} €
                                                 </TableCell>
                                                 <TableCell>
                                                     {rental.payment_status === 'paid' ? (
@@ -426,7 +436,7 @@ export default function Dashboard() {
                                 <TableRow className="bg-slate-900 border-t border-slate-800">
                                     <TableCell colSpan={3} className="text-right font-medium text-slate-400">Total Filtrado:</TableCell>
                                     <TableCell className="font-bold text-emerald-400">
-                                        {displayRentals.reduce((acc, r) => acc + (Number(r.total_amount || 0) - Number(r.deposit_value || 0) - Number(r.transport_value || 0)), 0).toFixed(2)} €
+                                        {displayRentals.reduce((acc, r) => acc + (Number(r.total_amount || 0)), 0).toFixed(2)} €
                                     </TableCell>
                                     <TableCell colSpan={2}></TableCell>
                                 </TableRow>

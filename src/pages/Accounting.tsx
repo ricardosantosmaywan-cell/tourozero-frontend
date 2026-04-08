@@ -13,8 +13,8 @@ export default function Accounting() {
     const [loading, setLoading] = useState(true);
 
     // Filtros
-    const [startDate, setStartDate] = useState('');
-    const [endDate, setEndDate] = useState('');
+    const [startDate, setStartDate] = useState(new Date().toISOString().substring(0, 7) + '-01');
+    const [endDate, setEndDate] = useState(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().substring(0, 10));
     const [filteredRentals, setFilteredRentals] = useState<any[]>([]);
 
     const { rentals } = useGlobalRentals();
@@ -34,16 +34,15 @@ export default function Accounting() {
         setFilteredRentals(filteredData);
 
         // 2. Faturamento (Exclui a Caução e Transporte) - Agora focado apenas em Materiais
-        const materialsRevenue = filteredData.reduce((acc, curr) => {
-            const total = Number(curr.total_amount || 0);
-            const transport = Number(curr.transport_value || 0);
-            const deposit = Number(curr.deposit_value || 0);
-            return acc + (total - transport - deposit);
-        }, 0);
+        const materialsRevenue = filteredData
+            .filter(r => r.payment_status === 'paid')
+            .reduce((acc, curr) => acc + (curr.materials_value || 0), 0);
         setTotalRevenue(materialsRevenue);
 
         // 2.1 Transporte 
-        const transportTotal = filteredData.reduce((acc, curr) => acc + Number(curr.transport_value || 0), 0);
+        const transportTotal = filteredData
+            .filter(r => r.payment_status === 'paid')
+            .reduce((acc, curr) => acc + Number(curr.transport_value || 0), 0);
         setTotalTransport(transportTotal);
 
         // 3. Produtos Mais Alugados (Top 5)
@@ -249,13 +248,13 @@ export default function Accounting() {
                                 <TableRow key={r.id} className="print:border-b print:border-slate-200">
                                     <TableCell className="print:text-black">{new Date(r.pickup_date).toLocaleDateString('pt-BR')}</TableCell>
                                     <TableCell className="print:text-black font-medium">{r.customers?.full_name || 'Desconhecido'}</TableCell>
-                                    <TableCell className="text-right font-bold print:text-black text-emerald-400">{(Number(r.total_amount || 0) - Number(r.deposit_value || 0) - Number(r.transport_value || 0)).toFixed(2)} €</TableCell>
+                                    <TableCell className="text-right font-bold print:text-black text-emerald-400">{(r.materials_value || 0).toFixed(2)} €</TableCell>
                                     <TableCell className="text-right font-bold print:text-black text-amber-500">{(Number(r.transport_value || 0)).toFixed(2)} €</TableCell>
                                     <TableCell className="text-right font-medium print:text-black text-emerald-500">
-                                        {((Number(r.total_amount || 0) - Number(r.deposit_value || 0) - Number(r.transport_value || 0)) * 0.8).toFixed(2)} €
+                                        {((r.materials_value || 0) * 0.8).toFixed(2)} €
                                     </TableCell>
                                     <TableCell className="text-right font-bold print:text-black text-blue-500">
-                                        {((Number(r.total_amount || 0) - Number(r.deposit_value || 0) - Number(r.transport_value || 0)) * 0.2).toFixed(2)} €
+                                        {((r.materials_value || 0) * 0.2).toFixed(2)} €
                                     </TableCell>
                                     <TableCell className="text-right print:text-black">
                                         <span className={`text-xs px-2 py-1 rounded-full inline-block ${r.status === 'active' ? 'bg-emerald-500/10 text-emerald-500 print:border print:border-emerald-500' : 'bg-slate-500/10 text-slate-500 print:border print:border-slate-500'}`}>
