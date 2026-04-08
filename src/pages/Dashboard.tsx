@@ -322,7 +322,7 @@ export default function Dashboard() {
                                 <TableRow>
                                     <TableHead className="w-[30%] min-w-[200px]">Cliente</TableHead>
                                     <TableHead className="w-[15%] min-w-[120px]">Prazo</TableHead>
-                                    <TableHead className="w-[20%] min-w-[160px]">Produtos</TableHead>
+                                    <TableHead className="hidden md:table-cell w-[20%] min-w-[160px]">Produtos</TableHead>
                                     <TableHead className="w-[15%] min-w-[130px]">Status</TableHead>
                                     <TableHead className="w-[15%] min-w-[120px]">Valor (€)</TableHead>
                                     <TableHead className="w-[10%] min-w-[100px]">Pagamento</TableHead>
@@ -341,14 +341,27 @@ export default function Dashboard() {
                                         const late = isLate(rental.return_date);
                                         return (
                                             <TableRow key={rental.id}>
-                                                <TableCell className="font-medium">{rental.customers?.full_name}</TableCell>
+                                                <TableCell className="font-medium">
+                                                    <div>{rental.customers?.full_name}</div>
+                                                    <div className="flex md:hidden flex-wrap gap-1 mt-1.5">
+                                                        {rental.items && rental.items.length > 0 ? (
+                                                            rental.items.map((it: any, idx: number) => (
+                                                                <span key={idx} className="text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded border border-slate-700 whitespace-nowrap">
+                                                                    {it.quantity}x {it.name}
+                                                                </span>
+                                                            ))
+                                                        ) : (
+                                                            <span className="text-[10px] text-slate-500 italic">Sem itens</span>
+                                                        )}
+                                                    </div>
+                                                </TableCell>
                                                 <TableCell className="whitespace-nowrap">
                                                     <span className="text-slate-500 text-[11px] font-medium mr-1.5">Entrega:</span>
                                                     <span className="font-semibold text-slate-200">
                                                         {new Date(rental.return_date).toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' })}
                                                     </span>
                                                 </TableCell>
-                                                <TableCell className="max-w-[180px]">
+                                                <TableCell className="hidden md:table-cell max-w-[180px]">
                                                     <div className="flex flex-wrap gap-1">
                                                         {rental.items && rental.items.length > 0 ? (
                                                             rental.items.map((it: any, idx: number) => (
@@ -448,7 +461,8 @@ export default function Dashboard() {
                             </TableBody>
                             <TableFooter>
                                 <TableRow className="bg-slate-900 border-t border-slate-800">
-                                    <TableCell colSpan={4} className="text-right font-medium text-slate-400">Total Filtrado:</TableCell>
+                                    <TableCell className="md:hidden text-right font-medium text-slate-400" colSpan={2}>Total Filtrado:</TableCell>
+                                    <TableCell className="hidden md:table-cell text-right font-medium text-slate-400" colSpan={4}>Total Filtrado:</TableCell>
                                     <TableCell className="font-bold text-emerald-400">
                                         {displayRentals.reduce((acc, r) => acc + (Number(r.materials_value || 0)), 0).toFixed(2)} €
                                     </TableCell>
