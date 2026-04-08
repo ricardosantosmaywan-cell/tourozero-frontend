@@ -207,42 +207,49 @@ export function useGlobalRentals() {
 
     async function fetchRentals() {
         setLoading(true);
-        // Nested JOIN no Supabase (Rentals -> Customers, Rentals -> Rental Items -> Products)
+        // Usando aliases para garantir clareza no retorno do Supabase
         const { data, error } = await supabase
             .from('rentals')
             .select(`
                 *,
-                customers (full_name, phone, email, tax_id),
-                rental_items (*, products (name))
+                customers:customer_id (full_name, phone, email, tax_id),
+                items:rental_items (*, products (name))
             `)
             .order('pickup_date', { ascending: false });
 
         if (!error && data) {
-            const mapped = data.map((r: any): Rental => ({
-                id: r.id,
-                customer_id: r.customer_id,
-                customers: r.customers || { full_name: 'Desconhecido', phone: '', email: '', tax_id: '' },
-                pickup_date: r.pickup_date,
-                return_date: r.return_date,
-                total_amount: r.total_amount,
-                status: r.status,
-                semanas: r.semanas,
-                delivery_address: r.delivery_address,
-                observacoes: r.observacoes,
-                transport_value: r.transport_value || 0,
-                deposit_value: r.deposit_value || 0,
-                payment_status: r.payment_status || 'pending',
-                created_at: r.created_at,
-                itemsCount: r.rental_items ? r.rental_items.reduce((sum: number, it: any) => sum + it.quantity, 0) : 0,
-                items: r.rental_items ? r.rental_items.map((it: any) => ({
-                    id: it.id,
-                    product_id: it.product_id,
-                    name: it.products?.name || 'Item Apagado',
-                    price_unit: it.price_unit,
-                    quantity: it.quantity
-                })) : []
-            }));
+            const mapped = data.map((r: any): Rental => {
+                // Captura itens tanto de fields mapeados quanto de possíveis retornos brutos
+                const rawItems = r.items || r.rental_items || [];
+                
+                return {
+                    id: r.id,
+                    customer_id: r.customer_id,
+                    customers: r.customers || { full_name: 'Desconhecido', phone: '', email: '', tax_id: '' },
+                    pickup_date: r.pickup_date,
+                    return_date: r.return_date,
+                    total_amount: Number(r.total_amount || 0),
+                    status: r.status,
+                    semanas: r.semanas,
+                    delivery_address: r.delivery_address,
+                    observacoes: r.observacoes,
+                    transport_value: Number(r.transport_value || 0),
+                    deposit_value: Number(r.deposit_value || 0),
+                    payment_status: r.payment_status || 'pending',
+                    created_at: r.created_at,
+                    itemsCount: rawItems.reduce((sum: number, it: any) => sum + (it.quantity || 0), 0),
+                    items: rawItems.map((it: any) => ({
+                        id: it.id,
+                        product_id: it.product_id,
+                        name: it.products?.name || 'Item do Aluguer',
+                        price_unit: Number(it.price_unit || 0),
+                        quantity: Number(it.quantity || 0)
+                    }))
+                };
+            });
             setRentals(mapped);
+        } else if (error) {
+            console.error("Erro ao carregar agendamentos:", error);
         }
         setLoading(false);
     }
@@ -253,7 +260,6 @@ export function useGlobalRentals() {
 
     async function addRental(newRentalData: any) {
         try {
-            // 1. Guardar o esqueleto do rental
             const rentalPayload = {
                 customer_id: newRentalData.customers?.id || newRentalData.customer_id,
                 pickup_date: newRentalData.pickup_date,
@@ -271,7 +277,6 @@ export function useGlobalRentals() {
             const { data: insertedRental, error: rentalError } = await supabase.from('rentals').insert([rentalPayload]).select().single();
             if (rentalError) throw new Error(rentalError.message);
 
-            // 2. Guardar Itens relacionais
             if (newRentalData.items && newRentalData.items.length > 0) {
                 const itemsPayload = newRentalData.items.map((it: any) => ({
                     rental_id: insertedRental.id,
@@ -282,7 +287,6 @@ export function useGlobalRentals() {
                 const { error: itemsError } = await supabase.from('rental_items').insert(itemsPayload);
                 if (itemsError) throw new Error(itemsError.message);
 
-                // 3. Subtração de Estoque automático (em substituição dos triggers SQL por agora)
                 if (rentalPayload.status === 'active') {
                     for (const it of newRentalData.items) {
                         const prodId = it.product?.id || it.product_id;
@@ -296,7 +300,6 @@ export function useGlobalRentals() {
 
             await fetchRentals();
             return insertedRental;
-
         } catch (error: any) {
             throw new Error(error.message);
         }
@@ -304,10 +307,14 @@ export function useGlobalRentals() {
 
     async function updateRental(id: string, updatedData: any) {
         try {
-            // 1. Snapshot da base de dados antiga para repor stock
+            // SEGURANÇA: Se não vierem dados de itens, abortamos a parte destrutiva
+            // para evitar limpar o agendamento por erro de carregamento do modal.
+            const hasItemsInPayload = updatedData.items && updatedData.items.length > 0;
+
             const { data: oldRental } = await supabase.from('rentals').select('status').eq('id', id).single();
 
-            if (oldRental && oldRental.status === 'active') {
+            // Só mexemos no stock se o agendamento estava ativo
+            if (oldRental && oldRental.status === 'active' && hasItemsInPayload) {
                 const { data: currentItems } = await supabase.from('rental_items').select('*').eq('rental_id', id);
                 if (currentItems) {
                     for (const item of currentItems) {
@@ -319,11 +326,12 @@ export function useGlobalRentals() {
                 }
             }
 
-            // 2. Apagar Itens Antigos (para reconstruir a relação sem duplicados)
-            await supabase.from('rental_items').delete().eq('rental_id', id);
+            // Se o payload tem itens, reconstrói a relação
+            if (hasItemsInPayload) {
+                await supabase.from('rental_items').delete().eq('rental_id', id);
+            }
 
-            // 3. Atualizar Esqueleto (Header)
-            const rentalPayload = {
+            const rentalPayload: any = {
                 pickup_date: updatedData.pickup_date,
                 return_date: updatedData.return_date,
                 total_amount: updatedData.total_amount,
@@ -336,14 +344,13 @@ export function useGlobalRentals() {
                 payment_status: updatedData.payment_status || 'pending'
             };
             if (updatedData.customers?.id || updatedData.customer_id) {
-                (rentalPayload as any).customer_id = updatedData.customers?.id || updatedData.customer_id;
+                rentalPayload.customer_id = updatedData.customers?.id || updatedData.customer_id;
             }
 
             const { data: newlyUpdatedRental, error: headerError } = await supabase.from('rentals').update(rentalPayload).eq('id', id).select().single();
             if (headerError) throw new Error(headerError.message);
 
-            // 4. Inserir Itens Novos/Editados
-            if (updatedData.items && updatedData.items.length > 0) {
+            if (hasItemsInPayload) {
                 const itemsPayload = updatedData.items.map((it: any) => ({
                     rental_id: id,
                     product_id: it.product?.id || it.product_id,
@@ -352,7 +359,6 @@ export function useGlobalRentals() {
                 }));
                 await supabase.from('rental_items').insert(itemsPayload);
 
-                // 5. Retirar Stock caso ativado
                 if (updatedData.status === 'active') {
                     for (const it of updatedData.items) {
                         const prodId = it.product?.id || it.product_id;
@@ -366,7 +372,6 @@ export function useGlobalRentals() {
 
             await fetchRentals();
             return newlyUpdatedRental;
-
         } catch (error: any) {
             throw new Error(error.message);
         }

@@ -44,7 +44,7 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
 
         const loadFullRentalData = async () => {
             if (rentalToEdit) {
-                // 1. Carregar dados básicos (esqueleto)
+                // 1. Carregamento Imediato (Evita amnésia visual)
                 setSelectedCustomer(rentalToEdit.customers);
                 setPickupDate(rentalToEdit.pickup_date);
                 setReturnDate(rentalToEdit.return_date);
@@ -52,23 +52,40 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
                 setDeliveryAddress(rentalToEdit.delivery_address || '');
                 setPaymentStatus(rentalToEdit.payment_status || 'pending');
                 setNotes(rentalToEdit.observacoes || '');
+                
+                // Preencher valores e itens iniciais vindos da prop
+                const propTransport = Number(rentalToEdit.transport_value || 0);
+                const propDeposit = Number(rentalToEdit.deposit_value || 0);
+                const propTotal = Number(rentalToEdit.total_amount || 0);
+                
+                setTransportFee(propTransport);
+                setDepositFee(propDeposit);
+                setManualTotal(propTotal > 0 ? propTotal - propTransport - propDeposit : 0);
 
-                // 2. Busca Profunda: Garantir valores financeiros e itens frescos
+                if (rentalToEdit.items && rentalToEdit.items.length > 0) {
+                    setSelectedProducts(rentalToEdit.items.map((it: any) => ({
+                        product: { id: it.product_id, name: it.name },
+                        quantity: Number(it.quantity || 0)
+                    })));
+                }
+
+                // 2. Busca Profunda de Reforço (Dados frescos do DB)
                 try {
                     const { data: freshRental } = await supabase
                         .from('rentals')
-                        .select('transport_value, deposit_value, total_amount')
+                        .select('transport_value, deposit_value, total_amount, observacoes')
                         .eq('id', rentalToEdit.id)
                         .single();
 
                     if (freshRental) {
-                        const transport = freshRental.transport_value || 0;
-                        const deposit = freshRental.deposit_value || 0;
-                        const total = freshRental.total_amount || 0;
+                        const transport = Number(freshRental.transport_value || 0);
+                        const deposit = Number(freshRental.deposit_value || 0);
+                        const total = Number(freshRental.total_amount || 0);
                         
                         setTransportFee(transport);
                         setDepositFee(deposit);
                         setManualTotal(total > 0 ? total - transport - deposit : 0);
+                        setNotes(freshRental.observacoes || '');
                     }
 
                     const { data: freshItems } = await supabase
@@ -76,23 +93,19 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
                         .select(`
                             quantity,
                             product_id,
-                            products ( id, name )
+                            products:product_id ( id, name )
                         `)
                         .eq('rental_id', rentalToEdit.id);
 
-                    if (freshItems) {
+                    if (freshItems && freshItems.length > 0) {
                         const mappedProducts = freshItems.map((it: any) => ({
-                            product: { id: it.product_id, name: it.products?.name || 'Item' },
-                            quantity: it.quantity
+                            product: { id: it.product_id || it.id, name: it.products?.name || 'Produto' },
+                            quantity: Number(it.quantity || 0)
                         }));
                         setSelectedProducts(mappedProducts);
                     }
                 } catch (err) {
                     console.error("Erro no deep fetch do agendamento:", err);
-                    // Fallback para os dados que já vieram por prop
-                    setTransportFee(rentalToEdit.transport_value || 0);
-                    setDepositFee(rentalToEdit.deposit_value || 0);
-                    setManualTotal((rentalToEdit.total_amount || 0) - (rentalToEdit.transport_value || 0) - (rentalToEdit.deposit_value || 0));
                 }
             } else {
                 resetState();

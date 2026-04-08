@@ -28,46 +28,50 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
         if (!isOpen || !rental) return;
 
         setNotes(rental.observacoes || '');
+        // Usar itens já mapeados no rental como estado inicial para evitar "Nenhum produto" visual
+        if (rental.items && rental.items.length > 0) {
+            setFetchedItems(rental.items);
+        }
 
         const loadItems = async () => {
             setIsLoadingItems(true);
             try {
-                // Fetch Financials
+                // Fetch Financials frescos
                 const { data: rentData } = await supabase
                     .from('rentals')
-                    .select('transport_value, deposit_value, total_amount')
+                    .select('transport_value, deposit_value, total_amount, observacoes')
                     .eq('id', rental.id)
                     .single();
                 
                 if (rentData) {
-                    setLiveTransport(rentData.transport_value || 0);
-                    setLiveDeposit(rentData.deposit_value || 0);
-                    setLiveTotal(rentData.total_amount || 0);
-                } else {
-                    setLiveTransport(rental.transport_value || 0);
-                    setLiveDeposit(rental.deposit_value || 0);
-                    setLiveTotal(rental.total_amount || 0);
+                    setLiveTransport(Number(rentData.transport_value || 0));
+                    setLiveDeposit(Number(rentData.deposit_value || 0));
+                    setLiveTotal(Number(rentData.total_amount || 0));
+                    setNotes(rentData.observacoes || '');
                 }
 
-                // Fetch Items
+                // Busca Profunda de Itens (com alias para segurança)
                 const { data, error } = await supabase
                     .from('rental_items')
                     .select(`
                         quantity,
                         price_unit,
-                        products ( name )
+                        products:product_id ( name )
                     `)
                     .eq('rental_id', rental.id);
 
                 if (error) throw error;
 
-                if (data) {
+                if (data && data.length > 0) {
                     const mapped = data.map((item: any) => ({
-                        quantity: item.quantity,
-                        price_unit: item.price_unit,
-                        name: item.products?.name || 'Produto Desconhecido'
+                        quantity: Number(item.quantity || 0),
+                        price_unit: Number(item.price_unit || 0),
+                        name: item.products?.name || 'Produto'
                     }));
                     setFetchedItems(mapped);
+                } else if (rental.items && rental.items.length > 0) {
+                    // Mantém os da prop se o fetch falhar mas a prop tiver dados
+                    setFetchedItems(rental.items);
                 }
             } catch (err) {
                 console.error("Erro ao carregar os itens do aluguer", err);
