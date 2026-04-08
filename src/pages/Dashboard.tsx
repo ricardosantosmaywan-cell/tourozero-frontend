@@ -359,7 +359,7 @@ export default function Dashboard() {
                                                     )}
                                                 </TableCell>
                                                 <TableCell className="font-semibold text-emerald-400">
-                                                    {(Number(rental.total_amount || 0)).toFixed(2)} €
+                                                    {(Number(rental.materials_value || 0)).toFixed(2)} €
                                                 </TableCell>
                                                 <TableCell>
                                                     {rental.payment_status === 'paid' ? (
@@ -436,7 +436,7 @@ export default function Dashboard() {
                                 <TableRow className="bg-slate-900 border-t border-slate-800">
                                     <TableCell colSpan={3} className="text-right font-medium text-slate-400">Total Filtrado:</TableCell>
                                     <TableCell className="font-bold text-emerald-400">
-                                        {displayRentals.reduce((acc, r) => acc + (Number(r.total_amount || 0)), 0).toFixed(2)} €
+                                        {displayRentals.reduce((acc, r) => acc + (Number(r.materials_value || 0)), 0).toFixed(2)} €
                                     </TableCell>
                                     <TableCell colSpan={2}></TableCell>
                                 </TableRow>
