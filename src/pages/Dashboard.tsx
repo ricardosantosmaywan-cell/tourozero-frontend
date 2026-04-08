@@ -311,7 +311,7 @@ export default function Dashboard() {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead className="w-[30%] min-w-[200px]">Cliente</TableHead>
-                                    <TableHead className="w-[15%] min-w-[120px]">Entrega</TableHead>
+                                    <TableHead className="w-[15%] min-w-[120px]">Prazo</TableHead>
                                     <TableHead className="w-[20%] min-w-[130px]">Status</TableHead>
                                     <TableHead className="w-[15%] min-w-[120px]">Valor (€)</TableHead>
                                     <TableHead className="w-[10%] min-w-[100px]">Pagamento</TableHead>
@@ -331,7 +331,12 @@ export default function Dashboard() {
                                         return (
                                             <TableRow key={rental.id}>
                                                 <TableCell className="font-medium">{rental.customers?.full_name}</TableCell>
-                                                <TableCell>{new Date(rental.pickup_date).toLocaleDateString()}</TableCell>
+                                                <TableCell className="whitespace-nowrap">
+                                                    <span className="text-slate-500 text-[11px] font-medium mr-1.5">Entrega:</span>
+                                                    <span className="font-semibold text-slate-200">
+                                                        {new Date(rental.return_date).toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' })}
+                                                    </span>
+                                                </TableCell>
                                                 <TableCell>
                                                     {late ? (
                                                         <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-red-500/10 text-red-500 border border-red-500/20 whitespace-nowrap">
