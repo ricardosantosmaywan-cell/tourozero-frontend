@@ -71,6 +71,7 @@ export default function Accounting() {
 
         setTopProducts(ranked);
         setLoading(false);
+        console.log('DADOS DO EXTRATO:', filteredData); // Log solicitado pelo utilizador
     }
 
     // Recalcula relatorios quando as dependencias (DB) ou data mudam (inicializacao)
@@ -258,7 +259,7 @@ export default function Accounting() {
                                                     </span>
                                                 ))
                                             ) : (
-                                                <span className="text-[10px] text-slate-500 italic">Sem itens</span>
+                                                <span className="text-[10px] text-slate-500 italic">TESTE</span>
                                             )}
                                         </div>
                                     </TableCell>
