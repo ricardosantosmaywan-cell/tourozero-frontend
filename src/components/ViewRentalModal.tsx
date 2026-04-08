@@ -63,11 +63,14 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
                 if (error) throw error;
 
                 if (data && data.length > 0) {
-                    const mapped = data.map((item: any) => ({
-                        quantity: Number(item.quantity || 0),
-                        price_unit: Number(item.price_unit || 0),
-                        name: item.products?.name || 'Produto'
-                    }));
+                    const mapped = data.map((item: any) => {
+                        const prodData = Array.isArray(item.products) ? item.products[0] : item.products;
+                        return {
+                            quantity: Number(item.quantity || 0),
+                            price_unit: Number(item.price_unit || 0),
+                            name: prodData?.name || item.name || 'Produto'
+                        };
+                    });
                     setFetchedItems(mapped);
                 } else if (rental.items && rental.items.length > 0) {
                     // Mantém os da prop se o fetch falhar mas a prop tiver dados

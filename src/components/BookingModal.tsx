@@ -98,10 +98,13 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
                         .eq('rental_id', rentalToEdit.id);
 
                     if (freshItems && freshItems.length > 0) {
-                        const mappedProducts = freshItems.map((it: any) => ({
-                            product: { id: it.product_id || it.id, name: it.products?.name || 'Produto' },
-                            quantity: Number(it.quantity || 0)
-                        }));
+                        const mappedProducts = freshItems.map((it: any) => {
+                            const prodData = Array.isArray(it.products) ? it.products[0] : it.products;
+                            return {
+                                product: { id: it.product_id || it.id, name: prodData?.name || it.name || 'Produto' },
+                                quantity: Number(it.quantity || 0)
+                            };
+                        });
                         setSelectedProducts(mappedProducts);
                     }
                 } catch (err) {

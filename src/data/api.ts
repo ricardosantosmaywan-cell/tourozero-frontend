@@ -207,20 +207,18 @@ export function useGlobalRentals() {
 
     async function fetchRentals() {
         setLoading(true);
-        // Usando aliases para garantir clareza no retorno do Supabase
         const { data, error } = await supabase
             .from('rentals')
             .select(`
                 *,
-                customers:customer_id (full_name, phone, email, tax_id),
-                items:rental_items (*, products (name))
+                customers:customer_id (*),
+                rental_items (*, products:product_id (*))
             `)
             .order('pickup_date', { ascending: false });
 
         if (!error && data) {
             const mapped = data.map((r: any): Rental => {
-                // Captura itens tanto de fields mapeados quanto de possíveis retornos brutos
-                const rawItems = r.items || r.rental_items || [];
+                const rawItems = r.rental_items || r.items || r.RentalItems || [];
                 
                 return {
                     id: r.id,
@@ -237,19 +235,23 @@ export function useGlobalRentals() {
                     deposit_value: Number(r.deposit_value || 0),
                     payment_status: r.payment_status || 'pending',
                     created_at: r.created_at,
-                    itemsCount: rawItems.reduce((sum: number, it: any) => sum + (it.quantity || 0), 0),
-                    items: rawItems.map((it: any) => ({
-                        id: it.id,
-                        product_id: it.product_id,
-                        name: it.products?.name || 'Item do Aluguer',
-                        price_unit: Number(it.price_unit || 0),
-                        quantity: Number(it.quantity || 0)
-                    }))
+                    itemsCount: Array.isArray(rawItems) ? rawItems.reduce((sum: number, it: any) => sum + (it.quantity || 0), 0) : 0,
+                    items: Array.isArray(rawItems) ? rawItems.map((it: any) => {
+                        // Lida com o fato de que o join de products pode vir como objeto ou array de 1 item
+                        const prodData = Array.isArray(it.products) ? it.products[0] : it.products;
+                        return {
+                            id: it.id,
+                            product_id: it.product_id,
+                            name: prodData?.name || it.product_name || 'Item',
+                            price_unit: Number(it.price_unit || 0),
+                            quantity: Number(it.quantity || 0)
+                        };
+                    }) : []
                 };
             });
             setRentals(mapped);
         } else if (error) {
-            console.error("Erro ao carregar agendamentos:", error);
+            console.error("Erro ao carregar agendamentos:", error.message);
         }
         setLoading(false);
     }
