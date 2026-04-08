@@ -4,7 +4,7 @@ import { Input } from './ui/Input';
 import { X, PlusCircle, Trash, CheckCircle2 } from 'lucide-react';
 import { useGlobalRentals, useGlobalCustomers, useGlobalProducts } from '../data/api';
 import type { Customer } from '../data/api';
-// import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 
 interface BookingModalProps {
     isOpen: boolean;
@@ -42,38 +42,64 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
     useEffect(() => {
         if (!isOpen) return;
 
-        if (rentalToEdit) {
-            // Preenchimento imediato para evitar "amnésia" visual
-            setSelectedCustomer(rentalToEdit.customers);
-            setPickupDate(rentalToEdit.pickup_date);
-            setReturnDate(rentalToEdit.return_date);
-            setDurationWeeks(rentalToEdit.semanas || 1);
-            setDeliveryAddress(rentalToEdit.delivery_address || '');
-            setPaymentStatus(rentalToEdit.payment_status || 'pending');
-            setNotes(rentalToEdit.observacoes || '');
-            
-            // Valores financeiros (Já vêm do hook useGlobalRentals)
-            const transport = rentalToEdit.transport_value || 0;
-            const deposit = rentalToEdit.deposit_value || 0;
-            const total = rentalToEdit.total_amount || 0;
-            
-            setTransportFee(transport);
-            setDepositFee(deposit);
-            setManualTotal(total > 0 ? total - transport - deposit : 0);
+        const loadFullRentalData = async () => {
+            if (rentalToEdit) {
+                // 1. Carregar dados básicos (esqueleto)
+                setSelectedCustomer(rentalToEdit.customers);
+                setPickupDate(rentalToEdit.pickup_date);
+                setReturnDate(rentalToEdit.return_date);
+                setDurationWeeks(rentalToEdit.semanas || 1);
+                setDeliveryAddress(rentalToEdit.delivery_address || '');
+                setPaymentStatus(rentalToEdit.payment_status || 'pending');
+                setNotes(rentalToEdit.observacoes || '');
 
-            // Itens/Produtos selecionados
-            if (rentalToEdit.items && rentalToEdit.items.length > 0) {
-                const mappedProducts = rentalToEdit.items.map((it: any) => ({
-                    product: { id: it.product_id, name: it.name },
-                    quantity: it.quantity
-                }));
-                setSelectedProducts(mappedProducts);
+                // 2. Busca Profunda: Garantir valores financeiros e itens frescos
+                try {
+                    const { data: freshRental } = await supabase
+                        .from('rentals')
+                        .select('transport_value, deposit_value, total_amount')
+                        .eq('id', rentalToEdit.id)
+                        .single();
+
+                    if (freshRental) {
+                        const transport = freshRental.transport_value || 0;
+                        const deposit = freshRental.deposit_value || 0;
+                        const total = freshRental.total_amount || 0;
+                        
+                        setTransportFee(transport);
+                        setDepositFee(deposit);
+                        setManualTotal(total > 0 ? total - transport - deposit : 0);
+                    }
+
+                    const { data: freshItems } = await supabase
+                        .from('rental_items')
+                        .select(`
+                            quantity,
+                            product_id,
+                            products ( id, name )
+                        `)
+                        .eq('rental_id', rentalToEdit.id);
+
+                    if (freshItems) {
+                        const mappedProducts = freshItems.map((it: any) => ({
+                            product: { id: it.product_id, name: it.products?.name || 'Item' },
+                            quantity: it.quantity
+                        }));
+                        setSelectedProducts(mappedProducts);
+                    }
+                } catch (err) {
+                    console.error("Erro no deep fetch do agendamento:", err);
+                    // Fallback para os dados que já vieram por prop
+                    setTransportFee(rentalToEdit.transport_value || 0);
+                    setDepositFee(rentalToEdit.deposit_value || 0);
+                    setManualTotal((rentalToEdit.total_amount || 0) - (rentalToEdit.transport_value || 0) - (rentalToEdit.deposit_value || 0));
+                }
             } else {
-                setSelectedProducts([]);
+                resetState();
             }
-        } else {
-            resetState();
-        }
+        };
+
+        loadFullRentalData();
     }, [isOpen, rentalToEdit]);
 
     function resetState() {
