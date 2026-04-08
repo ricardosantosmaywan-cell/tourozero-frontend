@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Button } from './ui/Button';
-import { X, FileText, Edit2, Trash2 } from 'lucide-react';
+import { X, FileText, Edit2, Trash2, User, Hash, Phone, Mail, MapPin, Calendar, Clock, Activity, Package, Truck, ShieldCheck, CreditCard } from 'lucide-react';
 import { useGlobalRentals } from '../data/api';
 import { supabase } from '../lib/supabase';
 import { printRentalContractHTML } from '../lib/htmlContractGenerator';
@@ -87,156 +87,181 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
     };
 
     return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4 animate-in fade-in overflow-y-auto">
-            <div className="w-full max-w-2xl rounded-2xl bg-slate-900 border border-slate-800 p-6 shadow-2xl my-8">
-                <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-xl font-bold tracking-tight text-slate-50 flex items-center gap-2">
-                        <FileText className="h-5 w-5 text-amber-500" />
-                        Ficha de Detalhes do Agendamento
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-2 md:p-4 animate-in fade-in overflow-y-auto">
+            <div className="w-full max-w-4xl rounded-2xl bg-slate-900 border border-slate-800 p-4 md:p-6 shadow-2xl my-4">
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-lg font-bold tracking-tight text-slate-50 flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-amber-500" />
+                        Ficha de Detalhes
                     </h2>
-                    <Button variant="ghost" size="icon" onClick={onClose}>
-                        <X className="h-5 w-5 text-slate-400" />
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
+                        <X className="h-4 w-4 text-slate-400" />
                     </Button>
                 </div>
 
-                <div className="space-y-6 mb-6">
-                    {/* Cliente Info */}
-                    <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-800">
-                        <h3 className="text-sm font-semibold text-amber-500 mb-3">Dados do Cliente</h3>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <p className="text-sm font-medium text-slate-400 mb-1">Cliente</p>
-                                <p className="font-semibold text-slate-100">{rental.customers?.full_name}</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    {/* Coluna Esquerda: Dados do Cliente */}
+                    <div className="space-y-4">
+                        <div className="p-3 bg-slate-800/40 rounded-lg border border-slate-800/60 transition-colors hover:border-slate-700/80">
+                            <h3 className="text-[11px] uppercase tracking-wider font-bold text-amber-500 mb-2 flex items-center gap-1.5">
+                                <User className="h-3 w-3" /> Dados do Cliente
+                            </h3>
+                            <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+                                <div className="col-span-2 sm:col-span-1">
+                                    <p className="text-[10px] font-medium text-slate-500 uppercase flex items-center gap-1"><User className="h-2.5 w-2.5" /> Cliente</p>
+                                    <p className="text-sm font-semibold text-slate-100 truncate">{rental.customers?.full_name}</p>
+                                </div>
+                                <div className="col-span-2 sm:col-span-1">
+                                    <p className="text-[10px] font-medium text-slate-500 uppercase flex items-center gap-1"><Hash className="h-2.5 w-2.5" /> NIF</p>
+                                    <p className="text-sm font-semibold text-slate-100">{rental.customers?.tax_id || '---'}</p>
+                                </div>
+                                <div className="col-span-2 sm:col-span-1">
+                                    <p className="text-[10px] font-medium text-slate-500 uppercase flex items-center gap-1"><Phone className="h-2.5 w-2.5" /> WhatsApp</p>
+                                    {rental.customers?.phone ? (
+                                        <a href={`https://wa.me/351${rental.customers.phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="text-sm font-semibold text-emerald-400 hover:text-emerald-300 transition-colors">
+                                            {rental.customers.phone}
+                                        </a>
+                                    ) : (
+                                        <p className="text-sm font-semibold text-slate-500">Não informado</p>
+                                    )}
+                                </div>
+                                <div className="col-span-2 sm:col-span-1">
+                                    <p className="text-[10px] font-medium text-slate-500 uppercase flex items-center gap-1"><Mail className="h-2.5 w-2.5" /> E-mail</p>
+                                    <p className="text-sm font-semibold text-slate-100 truncate">{rental.customers?.email || '---'}</p>
+                                </div>
                             </div>
-                            <div>
-                                <p className="text-sm font-medium text-slate-400 mb-1">NIF</p>
-                                <p className="font-semibold text-slate-100">{rental.customers?.tax_id || 'Não informado'}</p>
-                            </div>
-                            <div>
-                                <p className="text-sm font-medium text-slate-400 mb-1">Contacto WhatsApp</p>
-                                {rental.customers?.phone ? (
-                                    <a href={`https://wa.me/351${rental.customers.phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="font-semibold text-emerald-400 hover:text-emerald-300 transition-colors inline-block pb-0.5 border-b border-emerald-500/30">
-                                        {rental.customers.phone}
-                                    </a>
-                                ) : (
-                                    <p className="font-semibold text-slate-500">Não informado</p>
-                                )}
-                            </div>
-                            <div>
-                                <p className="text-sm font-medium text-slate-400 mb-1">E-mail</p>
-                                <p className="font-semibold text-slate-100">{rental.customers?.email || 'Não informado'}</p>
-                            </div>
-                            <div className="col-span-2 mt-2 p-3 bg-slate-900 rounded border border-slate-700/50">
-                                <p className="text-sm font-medium text-amber-500 mb-1">Local de Entrega / Endereço da Obra</p>
-                                <p className="font-semibold text-slate-200">
-                                    {rental.delivery_address ? rental.delivery_address : <span className="text-slate-500 font-normal italic">Recolha nas instalações</span>}
+                            <div className="mt-3 p-2 bg-slate-900/60 rounded border border-slate-700/40">
+                                <p className="text-[10px] font-medium text-amber-500 uppercase flex items-center gap-1 mb-0.5"><MapPin className="h-2.5 w-2.5" /> Endereço da Obra</p>
+                                <p className="text-xs font-medium text-slate-300 leading-tight">
+                                    {rental.delivery_address ? rental.delivery_address : <span className="text-slate-500 italic">Recolha nas instalações</span>}
                                 </p>
                             </div>
                         </div>
-                    </div>
 
-                    {/* Datas e Produtos */}
-                    <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-800">
-                        <h3 className="text-sm font-semibold text-amber-500 mb-3">Detalhes do Aluguer</h3>
-                        <div className="grid grid-cols-2 gap-4 mb-4 pb-4 border-b border-slate-700/50">
-                            <div>
-                                <p className="text-sm font-medium text-slate-400 mb-1">Data de Recolha</p>
-                                <p className="font-semibold text-slate-100">{new Date(rental.pickup_date).toLocaleDateString('pt-BR')}</p>
-                            </div>
-                            <div>
-                                <p className="text-sm font-medium text-slate-400 mb-1">Data de Entrega</p>
-                                <p className="font-semibold text-slate-100">{new Date(rental.return_date).toLocaleDateString('pt-BR')}</p>
-                            </div>
-                            <div>
-                                <p className="text-sm font-medium text-slate-400 mb-1">Duração</p>
-                                <p className="font-semibold text-slate-100">{rental.semanas} semana(s)</p>
-                            </div>
-                            <div>
-                                <p className="text-sm font-medium text-slate-400 mb-1">Status</p>
-                                <p className="font-semibold text-slate-100 uppercase text-xs">{rental.status === 'active' ? 'Ativo' : rental.status === 'completed' ? 'Concluído' : rental.status}</p>
-                            </div>
-                        </div>
-
-                        <div>
-                            <p className="text-sm font-medium text-slate-400 mb-2">Produtos Alugados ({fetchedItems.reduce((acc, it) => acc + it.quantity, 0)} un.)</p>
-                            <div className="space-y-2">
+                        {/* Produtos (Compacto) */}
+                        <div className="p-3 bg-slate-800/40 rounded-lg border border-slate-800/60 transition-colors hover:border-slate-700/80">
+                            <h3 className="text-[11px] uppercase tracking-wider font-bold text-amber-500 mb-2 flex items-center gap-1.5 font-mono">
+                                <Package className="h-3 w-3" /> Itens Alugados
+                            </h3>
+                            <div className="space-y-1 max-h-[100px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
                                 {isLoadingItems ? (
-                                    <div className="text-sm text-slate-500 italic pb-2">A extrair produtos da base de dados...</div>
+                                    <div className="text-[11px] text-slate-500 italic py-2">A carregar itens...</div>
                                 ) : fetchedItems.length > 0 ? (
                                     fetchedItems.map((item: any, idx: number) => (
-                                        <div key={idx} className="flex items-center justify-between text-sm bg-slate-900/50 p-2 rounded border border-slate-700/50">
-                                            <span className="text-slate-300">{item.quantity}x {item.name}</span>
+                                        <div key={idx} className="flex items-center justify-between text-[11px] bg-slate-900/60 px-2 py-1.5 rounded border border-slate-700/30 group hover:border-amber-500/30 transition-colors">
+                                            <span className="text-slate-300 font-medium group-hover:text-slate-100"><span className="text-amber-500/70 font-bold">{item.quantity}x</span> {item.name}</span>
+                                            <span className="text-slate-500 font-mono">{(item.price_unit * item.quantity).toFixed(2)}€</span>
                                         </div>
                                     ))
                                 ) : (
-                                    <div className="text-sm text-slate-500 italic pb-2">Sem produtos adicionados validamente.</div>
+                                    <div className="text-[11px] text-slate-500 italic py-2 text-center bg-slate-900/40 rounded">Nenhum produto associado.</div>
                                 )}
-                            </div>
-                            <div className="mt-4 pt-4 border-t border-slate-700/50 flex flex-col gap-2 bg-slate-900/40 p-4 rounded-lg">
-                                <div className="flex justify-between items-center text-sm">
-                                    <span className="text-slate-400">Valor dos Materiais:</span>
-                                    <span className="font-semibold text-emerald-400">{Number((liveTotal || 0) - (liveTransport || 0) - (liveDeposit || 0)).toFixed(2)} €</span>
-                                </div>
-                                <div className="flex justify-between items-center text-sm">
-                                    <span className="text-slate-400">Serviço de Transporte:</span>
-                                    <span className="font-semibold text-amber-500">{Number(liveTransport || 0).toFixed(2)} €</span>
-                                </div>
-                                <div className="flex justify-between items-center text-sm">
-                                    <span className="text-slate-400">Valor de Caução (Garantia Reembolsável):</span>
-                                    <span className="font-medium text-blue-400 italic">{Number(liveDeposit || 0).toFixed(2)} €</span>
-                                </div>
-                                <div className="flex justify-between items-center mt-3 pt-3 border-t border-slate-700/50">
-                                    <div className="flex flex-col">
-                                        <span className="text-sm font-bold text-slate-100">TOTAL FINAL (Serviços + Caução)</span>
-                                        <span className="text-[10px] text-slate-500 uppercase">Valor total pago pelo cliente</span>
-                                    </div>
-                                    <span className="text-2xl font-black text-amber-500">{Number(liveTotal).toFixed(2)} €</span>
-                                </div>
                             </div>
                         </div>
                     </div>
 
-                    {/* Observacoes */}
-                    <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">Observações / Notas Internas</label>
+                    {/* Coluna Direita: Detalhes do Aluguer e Tabela de Valores */}
+                    <div className="space-y-4">
+                        <div className="p-3 bg-slate-800/40 rounded-lg border border-slate-800/60">
+                            <h3 className="text-[11px] uppercase tracking-wider font-bold text-amber-500 mb-2 flex items-center gap-1.5">
+                                <Activity className="h-3 w-3" /> Detalhes do Aluguer
+                            </h3>
+                            <div className="grid grid-cols-2 gap-3 pb-3 border-b border-slate-700/40 mb-3">
+                                <div>
+                                    <p className="text-[10px] font-medium text-slate-500 uppercase flex items-center gap-1"><Calendar className="h-2.5 w-2.5" /> Início</p>
+                                    <p className="text-sm font-semibold text-slate-100">{new Date(rental.pickup_date).toLocaleDateString('pt-PT')}</p>
+                                </div>
+                                <div>
+                                    <p className="text-[10px] font-medium text-slate-500 uppercase flex items-center gap-1"><Calendar className="h-2.5 w-2.5" /> Fim</p>
+                                    <p className="text-sm font-semibold text-slate-100">{new Date(rental.return_date).toLocaleDateString('pt-PT')}</p>
+                                </div>
+                                <div>
+                                    <p className="text-[10px] font-medium text-slate-500 uppercase flex items-center gap-1"><Clock className="h-2.5 w-2.5" /> Duração</p>
+                                    <p className="text-sm font-semibold text-slate-100">{rental.semanas} semana(s)</p>
+                                </div>
+                                <div>
+                                    <p className="text-[10px] font-medium text-slate-500 uppercase flex items-center gap-1"><Activity className="h-2.5 w-2.5" /> Status</p>
+                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${rental.status === 'active' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-slate-700 text-slate-300'}`}>
+                                        {rental.status === 'active' ? 'Ativo' : rental.status === 'completed' ? 'Concluído' : rental.status}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Tabela de Valores Slim */}
+                            <div className="bg-slate-900/60 rounded-lg border border-slate-700/40 overflow-hidden">
+                                <table className="w-full text-[11px]">
+                                    <tbody className="divide-y divide-slate-700/30">
+                                        <tr>
+                                            <td className="px-3 py-1.5 text-slate-400 flex items-center gap-1.5"><Package className="h-2.5 w-2.5" /> Materiais</td>
+                                            <td className="px-3 py-1.5 text-right font-semibold text-slate-100">{Number((liveTotal || 0) - (liveTransport || 0) - (liveDeposit || 0)).toFixed(2)} €</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="px-3 py-1.5 text-slate-400 flex items-center gap-1.5"><Truck className="h-2.5 w-2.5" /> Transporte</td>
+                                            <td className="px-3 py-1.5 text-right font-semibold text-amber-500">{Number(liveTransport || 0).toFixed(2)} €</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="px-3 py-1.5 text-slate-400 flex items-center gap-1.5"><ShieldCheck className="h-2.5 w-2.5" /> Caução</td>
+                                            <td className="px-3 py-1.5 text-right font-medium text-blue-400 italic">{Number(liveDeposit || 0).toFixed(2)} €</td>
+                                        </tr>
+                                        <tr className="bg-amber-500/5">
+                                            <td className="px-3 py-2 text-slate-100 font-bold flex items-center gap-1.5 uppercase tracking-tighter"><CreditCard className="h-3 w-3 text-amber-500" /> Total Pago</td>
+                                            <td className="px-3 py-2 text-right text-lg font-black text-amber-500">{Number(liveTotal).toFixed(2)} €</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Observacoes e Botão Imprimir */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 items-end">
+                    <div className="md:col-span-2">
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1 flex items-center gap-1">
+                            <FileText className="h-2.5 w-2.5" /> Observações / Notas Internas
+                        </label>
                         <textarea
-                            className="w-full h-24 rounded-lg border border-slate-700 bg-slate-900 p-3 text-sm text-slate-50 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 resize-none placeholder:text-slate-600"
-                            placeholder="Adicione notas sobre o estado dos materiais, condições de entrega, horários..."
+                            className="w-full h-14 rounded-lg border border-slate-700 bg-slate-900/40 p-2 text-xs text-slate-50 focus:outline-none focus:ring-1 focus:ring-amber-500/50 resize-none placeholder:text-slate-600"
+                            placeholder="Notas sobre materiais, entrega, horários..."
                             value={notes}
                             onChange={(e) => setNotes(e.target.value)}
                         />
                     </div>
-                </div>
-                <div className="border-t border-slate-800 pt-5 mb-5">
-                    <Button type="button" variant="outline" className="w-full border-amber-500/50 bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 font-semibold" onClick={() => printRentalContractHTML(rental)}>
-                        <FileText className="w-4 h-4 mr-2" /> IMPRIMIR CONTRATO JURÍDICO
+                    <Button 
+                        type="button" 
+                        variant="outline" 
+                        className="h-14 border-amber-500/30 bg-amber-500/5 text-amber-500 hover:bg-amber-500/10 font-bold text-xs flex flex-col gap-1 items-center justify-center transition-all hover:border-amber-500/50" 
+                        onClick={() => printRentalContractHTML(rental)}
+                    >
+                        <FileText className="w-4 h-4" /> 
+                        <span>IMPRIMIR CONTRATO</span>
                     </Button>
                 </div>
 
-                <div className="flex items-center justify-between border-t border-slate-800 pt-5">
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-800">
                     <div className="flex gap-2">
                         {onEdit && (
-                            <Button type="button" variant="outline" className="text-amber-500 hover:text-amber-400 hover:bg-amber-500/10 border-amber-500/30" onClick={() => { onClose(); onEdit(rental); }}>
-                                <Edit2 className="w-4 h-4 mr-2" /> Editar
+                            <Button type="button" variant="ghost" className="h-9 px-3 text-amber-500 hover:bg-amber-500/10 text-xs font-semibold" onClick={() => { onClose(); onEdit(rental); }}>
+                                <Edit2 className="w-3.5 h-3.5 mr-1.5" /> Editar
                             </Button>
                         )}
                         {onDelete && (
-                            <Button type="button" variant="outline" className="text-red-500 hover:text-red-400 hover:bg-red-500/10 border-red-500/30" onClick={() => {
-                                if (window.confirm("Tem certeza que deseja eliminar este agendamento? Esta ação não pode ser desfeita.")) {
+                            <Button type="button" variant="ghost" className="h-9 px-3 text-red-500 hover:bg-red-500/10 text-xs font-semibold" onClick={() => {
+                                if (window.confirm("Apagar agendamento?")) {
                                     onDelete(rental.id);
                                     onClose();
                                 }
                             }}>
-                                <Trash2 className="w-4 h-4 mr-2" /> Eliminar
+                                <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Eliminar
                             </Button>
                         )}
                     </div>
-                    <div className="flex gap-3">
-                        <Button type="button" variant="outline" className="border-slate-700 bg-transparent text-slate-300 hover:bg-slate-800" onClick={onClose}>
+                    <div className="flex gap-2 ml-auto">
+                        <Button type="button" variant="outline" className="h-9 px-4 border-slate-700 bg-transparent text-slate-300 hover:bg-slate-800 text-xs" onClick={onClose}>
                             Fechar
                         </Button>
-                        <Button type="button" className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold" onClick={handleSaveNotes}>
-                            Salvar Notas
+                        <Button type="button" className="h-9 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs" onClick={handleSaveNotes}>
+                            Salvar Alterações
                         </Button>
                     </div>
                 </div>
