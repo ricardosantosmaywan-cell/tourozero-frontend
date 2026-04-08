@@ -49,6 +49,7 @@ export interface Rental {
     observacoes?: string;
     transport_value?: number;
     deposit_value?: number;
+    materials_value?: number;
     payment_status?: 'pending' | 'paid';
     itemsCount: number;
     items: RentalItem[];
@@ -212,13 +213,16 @@ export function useGlobalRentals() {
             .select(`
                 *,
                 customers:customer_id (*),
-                rental_items (*, products:product_id (*))
+                items:rental_items (*, products:product_id (*))
             `)
             .order('pickup_date', { ascending: false });
 
         if (!error && data) {
             const mapped = data.map((r: any): Rental => {
-                const rawItems = r.rental_items || r.items || r.RentalItems || [];
+                const rawItems = r.items || r.rental_items || r.RentalItems || [];
+                const transport = Number(r.transport_value || 0);
+                const deposit = Number(r.deposit_value || 0);
+                const total = Number(r.total_amount || 0);
                 
                 return {
                     id: r.id,
@@ -226,18 +230,18 @@ export function useGlobalRentals() {
                     customers: r.customers || { full_name: 'Desconhecido', phone: '', email: '', tax_id: '' },
                     pickup_date: r.pickup_date,
                     return_date: r.return_date,
-                    total_amount: Number(r.total_amount || 0),
+                    total_amount: total,
                     status: r.status,
                     semanas: r.semanas,
                     delivery_address: r.delivery_address,
                     observacoes: r.observacoes,
-                    transport_value: Number(r.transport_value || 0),
-                    deposit_value: Number(r.deposit_value || 0),
+                    transport_value: transport,
+                    deposit_value: deposit,
+                    materials_value: total - transport - deposit, // Fonte Única de Verdade
                     payment_status: r.payment_status || 'pending',
                     created_at: r.created_at,
                     itemsCount: Array.isArray(rawItems) ? rawItems.reduce((sum: number, it: any) => sum + (it.quantity || 0), 0) : 0,
                     items: Array.isArray(rawItems) ? rawItems.map((it: any) => {
-                        // Lida com o fato de que o join de products pode vir como objeto ou array de 1 item
                         const prodData = Array.isArray(it.products) ? it.products[0] : it.products;
                         return {
                             id: it.id,
