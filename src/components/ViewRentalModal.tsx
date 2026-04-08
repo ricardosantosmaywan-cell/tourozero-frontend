@@ -14,7 +14,7 @@ interface ViewRentalModalProps {
 }
 
 export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: ViewRentalModalProps) {
-    const { updateRental } = useGlobalRentals();
+    const { updateRentalPartial } = useGlobalRentals();
     const [notes, setNotes] = useState('');
     const [fetchedItems, setFetchedItems] = useState<any[]>([]);
     const [isLoadingItems, setIsLoadingItems] = useState(false);
@@ -82,7 +82,7 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
     if (!isOpen || !rental) return null;
 
     const handleSaveNotes = () => {
-        updateRental(rental.id, { observacoes: notes });
+        updateRentalPartial(rental.id, { observacoes: notes });
         onClose();
     };
 

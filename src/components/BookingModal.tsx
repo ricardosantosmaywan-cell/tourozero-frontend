@@ -33,6 +33,7 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
     const [durationWeeks, setDurationWeeks] = useState<number | ''>(1);
     const [paymentStatus, setPaymentStatus] = useState<'pending' | 'paid'>('pending');
     const [deliveryAddress, setDeliveryAddress] = useState('');
+    const [notes, setNotes] = useState('');
     const [showSuccessToast, setShowSuccessToast] = useState(false);
 
     const [showCustomerForm, setShowCustomerForm] = useState(false);
@@ -49,6 +50,7 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
             setDurationWeeks(rentalToEdit.semanas || 1);
             setDeliveryAddress(rentalToEdit.delivery_address || '');
             setPaymentStatus(rentalToEdit.payment_status || 'pending');
+            setNotes(rentalToEdit.observacoes || '');
             
             // Valores financeiros (Já vêm do hook useGlobalRentals)
             const transport = rentalToEdit.transport_value || 0;
@@ -90,6 +92,7 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
         setFormError('');
         setDurationWeeks(1);
         setDeliveryAddress('');
+        setNotes('');
     }
 
     async function searchCustomer() {
@@ -187,6 +190,7 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
             total_amount: totalPayload,
             transport_value: transportFee || 0,
             deposit_value: depositFee || 0,
+            observacoes: notes,
             payment_status: paymentStatus,
             status: rentalToEdit ? rentalToEdit.status : 'active',
             itemsCount: finalProducts.reduce((sum, sp) => sum + sp.quantity, 0),
@@ -423,6 +427,18 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
                                 <span className="text-xl font-black text-amber-500 leading-none">{(manualTotal + transportFee + depositFee).toFixed(2)} €</span>
                             </div>
                         </div>
+                    </div>
+
+                    <div className="p-3 border border-slate-800 rounded-lg bg-slate-950/50">
+                        <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1.5 flex items-center gap-1">
+                            Notas Internas / Observações
+                        </label>
+                        <textarea
+                            className="w-full h-16 rounded-lg border border-slate-700 bg-slate-900/40 p-2 text-xs text-slate-50 focus:outline-none focus:ring-1 focus:ring-amber-500/50 resize-none placeholder:text-slate-600"
+                            placeholder="Notas sobre o estado do material, caução em falta, etc..."
+                            value={notes}
+                            onChange={(e) => setNotes(e.target.value)}
+                        />
                     </div>
 
                     <div className="flex justify-end gap-2 pt-1">

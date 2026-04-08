@@ -398,15 +398,19 @@ export function useGlobalRentals() {
         }
     }
 
-    const updatePaymentStatus = async (id: string, newStatus: 'pending' | 'paid') => {
+    const updateRentalPartial = async (id: string, partialData: any) => {
         try {
-            const { error } = await supabase.from('rentals').update({ payment_status: newStatus }).eq('id', id);
+            const { error } = await supabase.from('rentals').update(partialData).eq('id', id);
             if (error) throw new Error(error.message);
             await fetchRentals();
         } catch (e: any) {
-            console.error('Erro ao atualizar status do pagamento:', e);
+            console.error('Erro ao atualizar aluguer (parcial):', e);
             throw new Error(e.message);
         }
+    };
+
+    const updatePaymentStatus = async (id: string, newStatus: 'pending' | 'paid') => {
+        await updateRentalPartial(id, { payment_status: newStatus });
     };
 
     return {
@@ -414,6 +418,7 @@ export function useGlobalRentals() {
         loading,
         addRental,
         updateRental,
+        updateRentalPartial,
         deleteRental,
         updatePaymentStatus,
         refreshRentals: fetchRentals
