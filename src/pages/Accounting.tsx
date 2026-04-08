@@ -231,6 +231,7 @@ export default function Accounting() {
                         <TableRow className="print:border-b-2 print:border-black">
                             <TableHead className="print:text-black">Data do Aluguer</TableHead>
                             <TableHead className="print:text-black">Nome do Cliente</TableHead>
+                            <TableHead className="print:text-black">Produtos</TableHead>
                             <TableHead className="text-right print:text-black">Materiais (€)</TableHead>
                             <TableHead className="text-right print:text-black">Transporte (€)</TableHead>
                             <TableHead className="text-right print:text-black">Prop. (80%)</TableHead>
@@ -248,6 +249,19 @@ export default function Accounting() {
                                 <TableRow key={r.id} className="print:border-b print:border-slate-200">
                                     <TableCell className="print:text-black">{new Date(r.pickup_date).toLocaleDateString('pt-BR')}</TableCell>
                                     <TableCell className="print:text-black font-medium">{r.customers?.full_name || 'Desconhecido'}</TableCell>
+                                    <TableCell className="print:text-black max-w-[200px]">
+                                        <div className="flex flex-wrap gap-1">
+                                            {r.items && r.items.length > 0 ? (
+                                                r.items.map((it: any, idx: number) => (
+                                                    <span key={idx} className="text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded border border-slate-700 whitespace-nowrap">
+                                                        {it.quantity}x {it.name}
+                                                    </span>
+                                                ))
+                                            ) : (
+                                                <span className="text-[10px] text-slate-500 italic">Sem itens</span>
+                                            )}
+                                        </div>
+                                    </TableCell>
                                     <TableCell className="text-right font-bold print:text-black text-emerald-400">{(r.materials_value || 0).toFixed(2)} €</TableCell>
                                     <TableCell className="text-right font-bold print:text-black text-amber-500">{(Number(r.transport_value || 0)).toFixed(2)} €</TableCell>
                                     <TableCell className="text-right font-medium print:text-black text-emerald-500">
@@ -266,7 +280,7 @@ export default function Accounting() {
                         )}
                         {/* Rodapé Dinâmico */}
                         <TableRow className="bg-slate-900/80 hover:bg-slate-900/80 print:bg-white print:border-t-2 print:border-black font-bold text-base">
-                            <TableCell colSpan={2} className="text-right text-slate-300 print:text-black uppercase tracking-wider py-4">
+                            <TableCell colSpan={3} className="text-right text-slate-300 print:text-black uppercase tracking-wider py-4">
                                 Soma Total do Período
                             </TableCell>
                             <TableCell className="text-right text-emerald-400 print:text-black py-4">
