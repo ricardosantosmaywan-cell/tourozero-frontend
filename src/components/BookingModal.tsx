@@ -34,6 +34,7 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
     const [paymentStatus, setPaymentStatus] = useState<'pending' | 'paid'>('pending');
     const [deliveryAddress, setDeliveryAddress] = useState('');
     const [notes, setNotes] = useState('');
+    const [extensionReason, setExtensionReason] = useState('');
     const [showSuccessToast, setShowSuccessToast] = useState(false);
 
     const [showCustomerForm, setShowCustomerForm] = useState(false);
@@ -135,6 +136,7 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
         setDurationWeeks(1);
         setDeliveryAddress('');
         setNotes('');
+        setExtensionReason('');
     }
 
     async function searchCustomer() {
@@ -241,8 +243,29 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
                 name: sp.product.name,
                 price_unit: 0,
                 quantity: sp.quantity
-            }))
+            })),
+            extensions_history: rentalToEdit ? rentalToEdit.extensions_history : []
         };
+
+        if (rentalToEdit) {
+            let updatedExtensions = rentalToEdit.extensions_history ? [...rentalToEdit.extensions_history] : [];
+            const oldValue = Number(rentalToEdit.total_amount || 0);
+            const newValue = totalPayload;
+            const oldDate = rentalToEdit.return_date;
+            const newDate = returnDate;
+
+            if (oldDate !== newDate || oldValue !== newValue || extensionReason.trim() !== '') {
+                updatedExtensions.push({
+                    date: new Date().toISOString(),
+                    old_return_date: oldDate,
+                    new_return_date: newDate,
+                    old_value: oldValue,
+                    new_value: newValue,
+                    reason: extensionReason.trim()
+                });
+                payload.extensions_history = updatedExtensions;
+            }
+        }
 
         try {
             if (rentalToEdit) {
@@ -481,6 +504,21 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
                             value={notes}
                             onChange={(e) => setNotes(e.target.value)}
                         />
+                        {rentalToEdit && (
+                            <div className="mt-3 pt-3 border-t border-slate-800">
+                                <label className="block text-[9px] font-bold text-amber-500 uppercase mb-1.5">
+                                    Motivo da Alteração / Prolongamento (Opcional)
+                                </label>
+                                <Input
+                                    type="text"
+                                    placeholder="Ex: Desconto por fidelidade, Adiado por atraso na obra..."
+                                    className="h-8 text-xs bg-slate-900 border-slate-700 focus:ring-amber-500 text-amber-400 placeholder:text-amber-500/30"
+                                    value={extensionReason}
+                                    onChange={e => setExtensionReason(e.target.value)}
+                                    maxLength={200}
+                                />
+                            </div>
+                        )}
                     </div>
 
                     <div className="flex justify-end gap-2 pt-1">

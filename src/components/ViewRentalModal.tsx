@@ -4,6 +4,8 @@ import { X, FileText, Edit2, Trash2, User, Hash, Phone, Mail, MapPin, Calendar, 
 import { useGlobalRentals } from '../data/api';
 import { supabase } from '../lib/supabase';
 import { printRentalContractHTML } from '../lib/htmlContractGenerator';
+import { ProlongModal } from './ProlongModal';
+import { CalendarPlus } from 'lucide-react';
 
 interface ViewRentalModalProps {
     isOpen: boolean;
@@ -18,6 +20,7 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
     const [notes, setNotes] = useState('');
     const [fetchedItems, setFetchedItems] = useState<any[]>([]);
     const [isLoadingItems, setIsLoadingItems] = useState(false);
+    const [isProlongModalOpen, setIsProlongModalOpen] = useState(false);
     
     // Financial Sync States
     const [liveTransport, setLiveTransport] = useState<number>(0);
@@ -91,6 +94,92 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
     const handleSaveNotes = () => {
         updateRentalPartial(rental.id, { observacoes: notes });
         onClose();
+    };
+
+    const handleConfirmProlong = async (daysDiff: number, extraValue: number, note: string, newItems: any[], newReturnDateStr: string) => {
+        const oldTotal = Number(rental.total_amount || 0);
+        const newTotal = oldTotal + extraValue;
+        
+        // Calcular novo total de semanas (original + fração do prolongamento)
+        const oldWeeks = Number(rental.semanas || 0);
+        const extraWeeksFraction = daysDiff / 7;
+        const newWeeksTotal = Number((oldWeeks + extraWeeksFraction).toFixed(1));
+
+        // Registo para o histórico
+        const extensionEntry = {
+            date: new Date().toISOString(),
+            type: 'prolongamento',
+            days_added: daysDiff,
+            extra_value: extraValue,
+            old_return_date: rental.return_date,
+            new_return_date: newReturnDateStr,
+            old_value: oldTotal,
+            new_value: newTotal,
+            note: note,
+            added_items: newItems.map(it => ({ name: it.product.name, quantity: it.quantity }))
+        };
+
+        const updatedHistory = [...(rental.extensions_history || []), extensionEntry];
+
+        try {
+            // 1. Atualizar Header do Aluguer
+            await updateRentalPartial(rental.id, {
+                return_date: newReturnDateStr,
+                total_amount: newTotal,
+                semanas: newWeeksTotal,
+                extensions_history: updatedHistory
+            });
+
+            // 2. Processar novos itens (Agregando itens repetidos para evitar bugs de soma)
+            if (newItems && newItems.length > 0) {
+                // Agrupar itens por product_id
+                const aggregatedItems: {[key: string]: {product: any, quantity: number}} = {};
+                newItems.forEach(item => {
+                    if (aggregatedItems[item.product.id]) {
+                        aggregatedItems[item.product.id].quantity += item.quantity;
+                    } else {
+                        aggregatedItems[item.product.id] = { ...item };
+                    }
+                });
+
+                for (const productId in aggregatedItems) {
+                    const item = aggregatedItems[productId];
+                    // Verificar se produto já existe no aluguer original
+                    const existingItem = (rental.items || []).find((it: any) => it.product_id === productId);
+                    
+                    if (existingItem) {
+                        // UPDATE na tabela rental_items (incrementar quantidade)
+                        const { error: itemUpdateErr } = await supabase
+                            .from('rental_items')
+                            .update({ quantity: Number(existingItem.quantity || 0) + item.quantity })
+                            .eq('rental_id', rental.id)
+                            .eq('product_id', productId);
+                        if (itemUpdateErr) throw itemUpdateErr;
+                    } else {
+                        // INSERT na tabela rental_items
+                        const { error: itemInsertErr } = await supabase
+                            .from('rental_items')
+                            .insert([{
+                                rental_id: rental.id,
+                                product_id: productId,
+                                quantity: item.quantity,
+                                price_unit: item.product.price_unit || 0
+                            }]);
+                        if (itemInsertErr) throw itemInsertErr;
+                    }
+
+                    // 3. Atualizar Stock do Produto
+                    const { data: prodData } = await supabase.from('products').select('available').eq('id', productId).single();
+                    if (prodData) {
+                        await supabase.from('products').update({ available: prodData.available - item.quantity }).eq('id', productId);
+                    }
+                }
+            }
+            
+            onClose();
+        } catch (err: any) {
+            alert("Erro ao processar prolongamento: " + err.message);
+        }
     };
 
     return (
@@ -234,7 +323,40 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
                             onChange={(e) => setNotes(e.target.value)}
                         />
                     </div>
-                    <Button 
+                    
+                    {/* Histórico de Prolongamentos */}
+                    {rental.extensions_history && rental.extensions_history.length > 0 && (
+                        <div className="md:col-span-3 mt-1 p-3 bg-slate-800/40 rounded-lg border border-slate-800/60">
+                            <h3 className="text-[11px] uppercase tracking-wider font-bold text-amber-500 mb-3 flex items-center gap-1.5">
+                                <Clock className="h-3 w-3" /> Histórico de Datas e Valores
+                            </h3>
+                            <div className="space-y-2 max-h-[140px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-700">
+                                {[...rental.extensions_history].reverse().map((ext: any, i: number) => (
+                                    <div key={i} className="text-xs text-slate-300 p-2 bg-slate-900/50 rounded border border-slate-700/50 flex flex-col gap-1 items-start relative pl-4 mt-2">
+                                        {/* Timeline Dot */}
+                                        <div className="absolute left-0 top-2.5 w-1.5 h-1.5 bg-amber-500 rounded-full shadow-[0_0_8px_rgba(245,158,11,0.6)]"></div>
+                                        <div className="flex w-full justify-between items-center text-[10px] text-slate-500 font-bold uppercase mb-0.5">
+                                            <span>Modificado a {new Date(ext.date).toLocaleDateString('pt-PT')}</span>
+                                        </div>
+                                        <div className="w-full">
+                                            {ext.old_return_date !== ext.new_return_date && (
+                                                <span className="block text-[11px]">Nova data: <span className="text-amber-500 font-bold">{ext.new_return_date ? new Date(ext.new_return_date).toLocaleDateString('pt-PT') : '-'}</span> <span className="opacity-50 line-through text-[9px]">(era {ext.old_return_date ? new Date(ext.old_return_date).toLocaleDateString('pt-PT') : '-'})</span></span>
+                                            )}
+                                            {ext.old_value !== ext.new_value && (
+                                                <span className="block text-[11px]">Novo valor: <span className="text-emerald-400 font-bold">{Number(ext.new_value || 0).toFixed(2)} €</span> <span className="opacity-50 line-through text-[9px]">(era {Number(ext.old_value || 0).toFixed(2)} €)</span></span>
+                                            )}
+                                            {ext.reason && (
+                                                <span className="block mt-1.5 bg-slate-800/60 p-1.5 rounded text-amber-400/90 italic border border-amber-500/10">"{ext.reason}"</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                    
+                    <div className="md:col-span-3">
+                        <Button 
                         type="button" 
                         variant="outline" 
                         className="h-14 border-amber-500/30 bg-amber-500/5 text-amber-500 hover:bg-amber-500/10 font-bold text-xs flex flex-col gap-1 items-center justify-center transition-all hover:border-amber-500/50" 
@@ -244,8 +366,9 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
                         <span>IMPRIMIR CONTRATO</span>
                     </Button>
                 </div>
+            </div>
 
-                <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-800">
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-800">
                     <div className="flex gap-2">
                         {onEdit && (
                             <Button type="button" variant="ghost" className="h-9 px-3 text-amber-500 hover:bg-amber-500/10 text-xs font-semibold" onClick={() => { onClose(); onEdit(rental); }}>
@@ -263,6 +386,14 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
                             </Button>
                         )}
                     </div>
+                    <Button 
+                        type="button" 
+                        variant="ghost" 
+                        className="h-9 px-3 text-amber-400 hover:bg-amber-500/10 text-xs font-bold border border-amber-500/20" 
+                        onClick={() => setIsProlongModalOpen(true)}
+                    >
+                        <CalendarPlus className="w-3.5 h-3.5 mr-1.5 text-amber-500" /> Prolongar Aluguer
+                    </Button>
                     <div className="flex gap-2 ml-auto">
                         <Button type="button" variant="outline" className="h-9 px-4 border-slate-700 bg-transparent text-slate-300 hover:bg-slate-800 text-xs" onClick={onClose}>
                             Fechar
@@ -272,7 +403,15 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
                         </Button>
                     </div>
                 </div>
-            </div>
+
+            
+            <ProlongModal 
+                isOpen={isProlongModalOpen}
+                onClose={() => setIsProlongModalOpen(false)}
+                rental={rental}
+                onConfirm={handleConfirmProlong}
+            />
         </div>
+    </div>
     );
 }

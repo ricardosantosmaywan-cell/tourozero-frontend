@@ -76,8 +76,19 @@ export default function Dashboard() {
         end.setHours(23, 59, 59, 999);
         return end < new Date();
     }
+    const activeRentals = (rentals || []).filter(r => r.status === 'active');
+    
+    // Verificação rigorosa para evitar crash no array
+    const completedRentals = (rentals || [])
+        .filter(r => {
+            const statusStr = typeof r.status === 'string' ? r.status.toLowerCase() : '';
+            return ['completed', 'finalizado', 'concluido', 'concluído'].includes(statusStr);
+        })
+        .slice(-10)
+        .reverse();
 
-    const activeRentals = rentals.filter(r => r.status === 'active');
+
+
 
     // Filtragens Dinâmicas da Tabela
     const displayRentals = activeRentals.filter(r => {
@@ -471,6 +482,103 @@ export default function Dashboard() {
                             </TableFooter>
                         </Table>
                     </div>
+            </div>
+
+            {/* Histórico de Alugueres */}
+            <div className="space-y-4 pt-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <h2 className="text-xl font-semibold tracking-tight text-slate-400">Histórico de Alugueres (Concluídos)</h2>
+                </div>
+                <div className="rounded-lg border border-slate-800/80 bg-slate-900/30 overflow-x-auto opacity-80">
+                    <Table>
+                        <TableHeader>
+                            <TableRow className="border-b border-slate-800/50">
+                                <TableHead className="w-[30%] min-w-[200px] text-slate-500">Cliente</TableHead>
+                                <TableHead className="w-[15%] min-w-[120px] text-slate-500">Prazo</TableHead>
+                                <TableHead className="hidden md:table-cell w-[20%] min-w-[160px] text-slate-500">Produtos</TableHead>
+                                <TableHead className="w-[15%] min-w-[130px] text-slate-500">Status</TableHead>
+                                <TableHead className="w-[15%] min-w-[120px] text-slate-500">Valor (€)</TableHead>
+                                <TableHead className="w-[20%] text-right whitespace-nowrap min-w-[200px] text-slate-500">Ação</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {(completedRentals || []).length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={6} className="text-center py-6 text-slate-500 font-medium italic">
+                                        Nenhum aluguer finalizado este mês.
+                                    </TableCell>
+                                </TableRow>
+                            ) : (
+                                completedRentals.map((rental) => (
+                                    <TableRow key={rental?.id || Math.random()} className="border-b border-slate-800/50 hover:bg-slate-800/30">
+                                        <TableCell className="font-medium">
+                                            <div className="text-slate-400">{rental?.customers?.full_name || 'Desconhecido'}</div>
+                                            <div className="flex md:hidden flex-wrap gap-1 mt-1.5 opacity-70">
+                                                {rental?.items && rental.items.length > 0 ? (
+                                                    rental.items.map((it: any, idx: number) => (
+                                                        <span key={idx} className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded border border-slate-700 whitespace-nowrap">
+                                                            {it.quantity || 1}x {it.name || '-'}
+                                                        </span>
+                                                    ))
+                                                ) : (
+                                                    <span className="text-[10px] text-slate-600 italic">Sem itens</span>
+                                                )}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="whitespace-nowrap text-slate-400">
+                                            {rental?.return_date ? new Date(rental.return_date).toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' }) : '-'}
+                                        </TableCell>
+                                        <TableCell className="hidden md:table-cell max-w-[180px] opacity-70">
+                                            <div className="flex flex-wrap gap-1">
+                                                {rental?.items && rental.items.length > 0 ? (
+                                                    rental.items.map((it: any, idx: number) => (
+                                                        <span key={idx} className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded border border-slate-700 whitespace-nowrap">
+                                                            {it.quantity || 1}x {it.name || '-'}
+                                                        </span>
+                                                    ))
+                                                ) : (
+                                                    <span className="text-[10px] text-slate-600 italic">Sem itens</span>
+                                                )}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <span className="inline-flex items-center px-2 py-1 rounded text-[10px] font-medium bg-slate-800/50 text-slate-400 border border-slate-700/50">
+                                                Concluído
+                                            </span>
+                                        </TableCell>
+                                        <TableCell className="text-slate-400 font-medium">
+                                            {(Number(rental?.materials_value || 0)).toFixed(2)} €
+                                        </TableCell>
+                                        <TableCell className="text-right flex items-center justify-end gap-2 opacity-80">
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 border border-transparent hover:border-blue-500/20"
+                                                onClick={() => {
+                                                    setViewRental({ ...rental });
+                                                    setIsViewModalOpen(true);
+                                                }}
+                                            >
+                                                <Eye className="w-4 h-4 mr-1.5" /> Ver
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 border border-transparent hover:border-amber-500/20"
+                                                onClick={() => {
+                                                    setBookingRentalToEdit(rental);
+                                                    setIsBookingModalOpen(true);
+                                                }}
+                                            >
+                                                <Edit2 className="w-4 h-4 mr-1.5" /> Editar
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
             </div>
 
             {/* Modal Global de Novo / Edição Agendamento */}

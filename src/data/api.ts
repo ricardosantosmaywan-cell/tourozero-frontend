@@ -53,6 +53,7 @@ export interface Rental {
     payment_status?: 'pending' | 'paid';
     itemsCount: number;
     items: RentalItem[];
+    extensions_history?: any[];
     created_at?: string;
 }
 
@@ -239,6 +240,7 @@ export function useGlobalRentals() {
                     deposit_value: deposit,
                     materials_value: total - transport - deposit, // Fonte Única de Verdade
                     payment_status: r.payment_status || 'pending',
+                    extensions_history: r.extensions_history || [],
                     created_at: r.created_at,
                     itemsCount: Array.isArray(rawItems) ? rawItems.reduce((sum: number, it: any) => sum + (it.quantity || 0), 0) : 0,
                     items: Array.isArray(rawItems) ? rawItems.map((it: any) => {
@@ -277,7 +279,8 @@ export function useGlobalRentals() {
                 observacoes: newRentalData.observacoes,
                 transport_value: newRentalData.transport_value || 0,
                 deposit_value: newRentalData.deposit_value || 0,
-                payment_status: newRentalData.payment_status || 'pending'
+                payment_status: newRentalData.payment_status || 'pending',
+                extensions_history: newRentalData.extensions_history || []
             };
 
             const { data: insertedRental, error: rentalError } = await supabase.from('rentals').insert([rentalPayload]).select().single();
@@ -347,7 +350,8 @@ export function useGlobalRentals() {
                 observacoes: updatedData.observacoes,
                 transport_value: updatedData.transport_value || 0,
                 deposit_value: updatedData.deposit_value || 0,
-                payment_status: updatedData.payment_status || 'pending'
+                payment_status: updatedData.payment_status || 'pending',
+                extensions_history: updatedData.extensions_history
             };
             if (updatedData.customers?.id || updatedData.customer_id) {
                 rentalPayload.customer_id = updatedData.customers?.id || updatedData.customer_id;
