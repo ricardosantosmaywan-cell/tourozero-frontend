@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Button } from './ui/Button';
-import { X, FileText, Edit2, Trash2, User, Hash, Phone, Mail, MapPin, Calendar, Clock, Activity, Package, Truck, ShieldCheck, CreditCard } from 'lucide-react';
+import { X, FileText, Edit2, Trash2, User, Hash, Phone, Mail, MapPin, Calendar, Clock, Activity, Package, CreditCard } from 'lucide-react';
 import { useGlobalRentals } from '../data/api';
 import { supabase } from '../lib/supabase';
 import { printRentalContractHTML } from '../lib/htmlContractGenerator';
@@ -25,6 +25,8 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
     // Financial Sync States
     const [liveTransport, setLiveTransport] = useState<number>(0);
     const [liveDeposit, setLiveDeposit] = useState<number>(0);
+    const [liveIvaMats, setLiveIvaMats] = useState<number>(0);
+    const [liveIvaTransp, setLiveIvaTransp] = useState<number>(0);
     const [liveTotal, setLiveTotal] = useState<number>(0);
 
     useEffect(() => {
@@ -42,13 +44,15 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
                 // Fetch Financials frescos
                 const { data: rentData } = await supabase
                     .from('rentals')
-                    .select('transport_value, deposit_value, total_amount, observacoes')
+                    .select('transport_value, deposit_value, iva_materials, iva_transport, total_amount, observacoes')
                     .eq('id', rental.id)
                     .single();
                 
                 if (rentData) {
                     setLiveTransport(Number(rentData.transport_value || 0));
                     setLiveDeposit(Number(rentData.deposit_value || 0));
+                    setLiveIvaMats(Number(rentData.iva_materials || 0));
+                    setLiveIvaTransp(Number(rentData.iva_transport || 0));
                     setLiveTotal(Number(rentData.total_amount || 0));
                     setNotes(rentData.observacoes || '');
                 }
@@ -288,19 +292,27 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
                                 <table className="w-full text-[11px]">
                                     <tbody className="divide-y divide-slate-700/30">
                                         <tr>
-                                            <td className="px-3 py-1.5 text-slate-400 flex items-center gap-1.5"><Package className="h-2.5 w-2.5" /> Materiais</td>
-                                            <td className="px-3 py-1.5 text-right font-semibold text-slate-100">{Number((liveTotal || 0) - (liveTransport || 0) - (liveDeposit || 0)).toFixed(2)} €</td>
+                                            <td className="px-3 py-1 text-slate-400 flex items-center gap-1.5">Subtotal Materiais</td>
+                                            <td className="px-3 py-1 text-right font-semibold text-slate-100">{Number((liveTotal || 0) - (liveTransport || 0) - (liveDeposit || 0) - (liveIvaMats || 0) - (liveIvaTransp || 0)).toFixed(2)} €</td>
                                         </tr>
                                         <tr>
-                                            <td className="px-3 py-1.5 text-slate-400 flex items-center gap-1.5"><Truck className="h-2.5 w-2.5" /> Transporte</td>
-                                            <td className="px-3 py-1.5 text-right font-semibold text-amber-500">{Number(liveTransport || 0).toFixed(2)} €</td>
+                                            <td className="px-3 py-1 text-slate-500 flex items-center gap-1.5 pl-6">IVA Materiais</td>
+                                            <td className="px-3 py-1 text-right font-medium text-slate-400">{Number(liveIvaMats || 0).toFixed(2)} €</td>
                                         </tr>
                                         <tr>
-                                            <td className="px-3 py-1.5 text-slate-400 flex items-center gap-1.5"><ShieldCheck className="h-2.5 w-2.5" /> Caução</td>
-                                            <td className="px-3 py-1.5 text-right font-medium text-blue-400 italic">{Number(liveDeposit || 0).toFixed(2)} €</td>
+                                            <td className="px-3 py-1 text-slate-400 flex items-center gap-1.5">Subtotal Transporte</td>
+                                            <td className="px-3 py-1 text-right font-semibold text-slate-100">{Number(liveTransport || 0).toFixed(2)} €</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="px-3 py-1 text-slate-500 flex items-center gap-1.5 pl-6">IVA Transporte</td>
+                                            <td className="px-3 py-1 text-right font-medium text-slate-400">{Number(liveIvaTransp || 0).toFixed(2)} €</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="px-3 py-1 text-slate-400 flex items-center gap-1.5">Caução (Garantia)</td>
+                                            <td className="px-3 py-1 text-right font-medium text-blue-400">{Number(liveDeposit || 0).toFixed(2)} €</td>
                                         </tr>
                                         <tr className="bg-amber-500/5">
-                                            <td className="px-3 py-2 text-slate-100 font-bold flex items-center gap-1.5 uppercase tracking-tighter"><CreditCard className="h-3 w-3 text-amber-500" /> Total Pago</td>
+                                            <td className="px-3 py-2 text-slate-100 font-bold flex items-center gap-1.5 uppercase tracking-tighter"><CreditCard className="h-3 w-3 text-amber-500" /> Total a Pagar</td>
                                             <td className="px-3 py-2 text-right text-lg font-black text-amber-500">{Number(liveTotal).toFixed(2)} €</td>
                                         </tr>
                                     </tbody>

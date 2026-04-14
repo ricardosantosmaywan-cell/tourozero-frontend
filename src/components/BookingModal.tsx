@@ -30,6 +30,8 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
     const [manualTotal, setManualTotal] = useState<number>(0);
     const [transportFee, setTransportFee] = useState<number>(0);
     const [depositFee, setDepositFee] = useState<number>(0);
+    const [ivaMaterials, setIvaMaterials] = useState<number>(0);
+    const [ivaTransport, setIvaTransport] = useState<number>(0);
     const [durationWeeks, setDurationWeeks] = useState<number | ''>(1);
     const [paymentStatus, setPaymentStatus] = useState<'pending' | 'paid'>('pending');
     const [deliveryAddress, setDeliveryAddress] = useState('');
@@ -57,11 +59,15 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
                 // Preencher valores e itens iniciais vindos da prop
                 const propTransport = Number(rentalToEdit.transport_value || 0);
                 const propDeposit = Number(rentalToEdit.deposit_value || 0);
+                const propIvaMats = Number(rentalToEdit.iva_materials || 0);
+                const propIvaTransp = Number(rentalToEdit.iva_transport || 0);
                 const propTotal = Number(rentalToEdit.total_amount || 0);
                 
                 setTransportFee(propTransport);
                 setDepositFee(propDeposit);
-                setManualTotal(propTotal > 0 ? propTotal - propTransport - propDeposit : 0);
+                setIvaMaterials(propIvaMats);
+                setIvaTransport(propIvaTransp);
+                setManualTotal(propTotal > 0 ? propTotal - propTransport - propDeposit - propIvaMats - propIvaTransp : 0);
 
                 if (rentalToEdit.items && rentalToEdit.items.length > 0) {
                     setSelectedProducts(rentalToEdit.items.map((it: any) => ({
@@ -74,18 +80,22 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
                 try {
                     const { data: freshRental } = await supabase
                         .from('rentals')
-                        .select('transport_value, deposit_value, total_amount, observacoes')
+                        .select('transport_value, deposit_value, iva_materials, iva_transport, total_amount, observacoes')
                         .eq('id', rentalToEdit.id)
                         .single();
 
                     if (freshRental) {
                         const transport = Number(freshRental.transport_value || 0);
                         const deposit = Number(freshRental.deposit_value || 0);
+                        const ivaMats = Number(freshRental.iva_materials || 0);
+                        const ivaTransp = Number(freshRental.iva_transport || 0);
                         const total = Number(freshRental.total_amount || 0);
                         
                         setTransportFee(transport);
                         setDepositFee(deposit);
-                        setManualTotal(total > 0 ? total - transport - deposit : 0);
+                        setIvaMaterials(ivaMats);
+                        setIvaTransport(ivaTransp);
+                        setManualTotal(total > 0 ? total - transport - deposit - ivaMats - ivaTransp : 0);
                         setNotes(freshRental.observacoes || '');
                     }
 
@@ -129,6 +139,8 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
         setManualTotal(0);
         setTransportFee(0);
         setDepositFee(0);
+        setIvaMaterials(0);
+        setIvaTransport(0);
         setPaymentStatus('pending');
         setShowCustomerForm(false);
         setNewCustomerData({ full_name: '', phone: '', address: '', tax_id: '', email: '', document_id: '' });
@@ -223,7 +235,11 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
         }
 
         const finalSemanas = (typeof durationWeeks === 'number' && durationWeeks > 0) ? durationWeeks : 0;
-        const totalPayload = (typeof manualTotal === 'number' ? manualTotal : 0) + (typeof transportFee === 'number' ? transportFee : 0) + (typeof depositFee === 'number' ? depositFee : 0);
+        const totalPayload = (typeof manualTotal === 'number' ? manualTotal : 0) + 
+                             (typeof transportFee === 'number' ? transportFee : 0) + 
+                             (typeof depositFee === 'number' ? depositFee : 0) + 
+                             (typeof ivaMaterials === 'number' ? ivaMaterials : 0) + 
+                             (typeof ivaTransport === 'number' ? ivaTransport : 0);
 
         const payload = {
             customers: customerToUse,
@@ -234,6 +250,8 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
             total_amount: totalPayload,
             transport_value: transportFee || 0,
             deposit_value: depositFee || 0,
+            iva_materials: ivaMaterials || 0,
+            iva_transport: ivaTransport || 0,
             observacoes: notes,
             payment_status: paymentStatus,
             status: rentalToEdit ? rentalToEdit.status : 'active',
@@ -475,6 +493,31 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
                             </div>
                         </div>
 
+                        <div className="grid grid-cols-2 gap-2 mt-2">
+                            <div>
+                                <label className="block text-[9px] font-bold text-slate-500 uppercase mb-0.5">IVA Materiais €</label>
+                                <Input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={ivaMaterials === 0 && !rentalToEdit ? '' : ivaMaterials}
+                                    onChange={(e) => setIvaMaterials(parseFloat(e.target.value) || 0)}
+                                    className="h-8 text-xs px-1 border-slate-700 bg-slate-900 focus:ring-amber-500"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-[9px] font-bold text-slate-500 uppercase mb-0.5">IVA Transporte €</label>
+                                <Input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={ivaTransport === 0 && !rentalToEdit ? '' : ivaTransport}
+                                    onChange={(e) => setIvaTransport(parseFloat(e.target.value) || 0)}
+                                    className="h-8 text-xs px-1 border-slate-700 bg-slate-900 focus:ring-amber-500"
+                                />
+                            </div>
+                        </div>
+
                         <div className="mt-3 pt-3 border-t border-slate-800/60 flex justify-between items-center">
                              <div className="flex flex-col">
                                 <label className="block text-[8px] font-bold text-slate-500 uppercase mb-1">Status Pagamento</label>
@@ -489,7 +532,7 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
                             </div>
                             <div className="flex flex-col items-end">
                                 <span className="text-[9px] font-bold text-slate-500 uppercase">Total a Pagar</span>
-                                <span className="text-xl font-black text-amber-500 leading-none">{(manualTotal + transportFee + depositFee).toFixed(2)} €</span>
+                                <span className="text-xl font-black text-amber-500 leading-none">{(manualTotal + transportFee + depositFee + ivaMaterials + ivaTransport).toFixed(2)} €</span>
                             </div>
                         </div>
                     </div>

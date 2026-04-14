@@ -50,6 +50,8 @@ export interface Rental {
     transport_value?: number;
     deposit_value?: number;
     materials_value?: number;
+    iva_materials?: number;
+    iva_transport?: number;
     payment_status?: 'pending' | 'paid';
     itemsCount: number;
     items: RentalItem[];
@@ -223,6 +225,8 @@ export function useGlobalRentals() {
                 const rawItems = r.items || r.rental_items || r.RentalItems || [];
                 const transport = Number(r.transport_value || 0);
                 const deposit = Number(r.deposit_value || 0);
+                const ivaMats = Number(r.iva_materials || 0);
+                const ivaTransp = Number(r.iva_transport || 0);
                 const total = Number(r.total_amount || 0);
                 
                 return {
@@ -238,7 +242,9 @@ export function useGlobalRentals() {
                     observacoes: r.observacoes,
                     transport_value: transport,
                     deposit_value: deposit,
-                    materials_value: total - transport - deposit, // Fonte Única de Verdade
+                    iva_materials: ivaMats,
+                    iva_transport: ivaTransp,
+                    materials_value: total - transport - deposit - ivaMats - ivaTransp, // Faturamento Líquido (Real)
                     payment_status: r.payment_status || 'pending',
                     extensions_history: r.extensions_history || [],
                     created_at: r.created_at,
@@ -279,8 +285,10 @@ export function useGlobalRentals() {
                 observacoes: newRentalData.observacoes,
                 transport_value: newRentalData.transport_value || 0,
                 deposit_value: newRentalData.deposit_value || 0,
+                iva_materials: newRentalData.iva_materials || 0,
+                iva_transport: newRentalData.iva_transport || 0,
                 payment_status: newRentalData.payment_status || 'pending',
-                // extensions_history: newRentalData.extensions_history || [] // Comentado até a coluna ser criada no DB
+                // extensions_history: newRentalData.extensions_history || [] 
             };
 
             const { data: insertedRental, error: rentalError } = await supabase.from('rentals').insert([rentalPayload]).select().single();
@@ -350,8 +358,10 @@ export function useGlobalRentals() {
                 observacoes: updatedData.observacoes,
                 transport_value: updatedData.transport_value || 0,
                 deposit_value: updatedData.deposit_value || 0,
+                iva_materials: updatedData.iva_materials || 0,
+                iva_transport: updatedData.iva_transport || 0,
                 payment_status: updatedData.payment_status || 'pending',
-                // extensions_history: updatedData.extensions_history // Comentado até a coluna ser criada no DB
+                // extensions_history: updatedData.extensions_history 
             };
             if (updatedData.customers?.id || updatedData.customer_id) {
                 rentalPayload.customer_id = updatedData.customers?.id || updatedData.customer_id;

@@ -12,8 +12,10 @@ export function printRentalContractHTML(rental: Rental) {
     const endDate = new Date(rental.return_date).toLocaleDateString('pt-PT');
     const depositValue = Number(rental.deposit_value || 0).toFixed(2);
     const transportValue = Number(rental.transport_value || 0).toFixed(2);
+    const ivaMats = Number(rental.iva_materials || 0).toFixed(2);
+    const ivaTransp = Number(rental.iva_transport || 0).toFixed(2);
     const totalAmount = Number(rental.total_amount || 0).toFixed(2);
-    const materialsValue = (Number(rental.total_amount || 0) - Number(rental.deposit_value || 0) - Number(rental.transport_value || 0)).toFixed(2);
+    const materialsValue = (Number(rental.total_amount || 0) - Number(rental.deposit_value || 0) - Number(rental.transport_value || 0) - Number(rental.iva_materials || 0) - Number(rental.iva_transport || 0)).toFixed(2);
     const deliveryAddress = rental.delivery_address || 'Recolha nas instalações';
 
     // Conjuntos de andaimes
@@ -217,11 +219,15 @@ body {
   </table>
 
   <div class="totals-block">
-    <div class="line"><span>Valor dos Materiais:</span> <strong>${materialsValue} €</strong></div>
-    <div class="line"><span>Serviço de Transporte:</span> <strong>${transportValue} €</strong></div>
-    <div class="line"><span>Valor de Caução (Garantia):</span> <strong>${depositValue} €</strong></div>
+    <div class="line"><span>Subtotal Materiais:</span> <strong>${materialsValue} €</strong></div>
+    <div class="line"><span>IVA Materiais:</span> <strong>${ivaMats} €</strong></div>
+    <div style="margin: 5px 0; border-top: 0.5px dashed #ccc; width: 250px; margin-left: auto;"></div>
+    <div class="line"><span>Subtotal Transporte:</span> <strong>${transportValue} €</strong></div>
+    <div class="line"><span>IVA Transporte:</span> <strong>${ivaTransp} €</strong></div>
+    <div style="margin: 5px 0; border-top: 0.5px dashed #ccc; width: 250px; margin-left: auto;"></div>
+    <div class="line"><span>Caução (Garantia/Isento):</span> <strong>${depositValue} €</strong></div>
     <div class="total-final">
-      <div class="line"><span>TOTAL A PAGAR NO ATO:</span> <strong>${totalAmount} €</strong></div>
+      <div class="line"><span>TOTAL A PAGAR:</span> <strong>${totalAmount} €</strong></div>
     </div>
   </div>
 
@@ -266,7 +272,7 @@ body {
 
   <p><strong>CLÁUSULA TERCEIRA:</strong><br>
   UM – Cedência de ${quantitySets} Conjuntos (2 laterais, 1 cruzeta, 1 travão, 1 prancha).<br>
-  DOIS – Valor de ${materialsValue} € + IVA + caução de ${depositValue} €.<br>
+  DOIS – Valor de ${materialsValue} € (Materiais) + ${transportValue} € (Transporte) + IVAs correspondentes + caução de ${depositValue} €.<br>
   TRÊS – Multa por atraso conforme acordado.</p>
 
   <p><strong>CLÁUSULA QUARTA (Responsabilidade e Manutenção):</strong><br>
