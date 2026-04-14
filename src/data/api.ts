@@ -280,7 +280,7 @@ export function useGlobalRentals() {
                 transport_value: newRentalData.transport_value || 0,
                 deposit_value: newRentalData.deposit_value || 0,
                 payment_status: newRentalData.payment_status || 'pending',
-                extensions_history: newRentalData.extensions_history || []
+                // extensions_history: newRentalData.extensions_history || [] // Comentado até a coluna ser criada no DB
             };
 
             const { data: insertedRental, error: rentalError } = await supabase.from('rentals').insert([rentalPayload]).select().single();
@@ -351,7 +351,7 @@ export function useGlobalRentals() {
                 transport_value: updatedData.transport_value || 0,
                 deposit_value: updatedData.deposit_value || 0,
                 payment_status: updatedData.payment_status || 'pending',
-                extensions_history: updatedData.extensions_history
+                // extensions_history: updatedData.extensions_history // Comentado até a coluna ser criada no DB
             };
             if (updatedData.customers?.id || updatedData.customer_id) {
                 rentalPayload.customer_id = updatedData.customers?.id || updatedData.customer_id;
@@ -415,7 +415,11 @@ export function useGlobalRentals() {
 
     const updateRentalPartial = async (id: string, partialData: any) => {
         try {
-            const { error } = await supabase.from('rentals').update(partialData).eq('id', id);
+            // Filtrar extensions_history se a coluna ainda não existir
+            const sanitizedData = { ...partialData };
+            delete sanitizedData.extensions_history;
+
+            const { error } = await supabase.from('rentals').update(sanitizedData).eq('id', id);
             if (error) throw new Error(error.message);
             await fetchRentals();
         } catch (e: any) {
