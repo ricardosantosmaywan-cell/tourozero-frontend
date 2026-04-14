@@ -220,10 +220,10 @@ body {
 
   <div class="totals-block">
     <div class="line"><span>Subtotal Materiais:</span> <strong>${materialsValue} €</strong></div>
-    <div class="line"><span>IVA Materiais:</span> <strong>${ivaMats} €</strong></div>
+    <div class="line"><span>IVA Materiais (${Number(materialsValue) > 0 ? Math.round((Number(ivaMats) / Number(materialsValue)) * 100) : 0}%):</span> <strong>${ivaMats} €</strong></div>
     <div style="margin: 5px 0; border-top: 0.5px dashed #ccc; width: 250px; margin-left: auto;"></div>
     <div class="line"><span>Subtotal Transporte:</span> <strong>${transportValue} €</strong></div>
-    <div class="line"><span>IVA Transporte:</span> <strong>${ivaTransp} €</strong></div>
+    <div class="line"><span>IVA Transporte (${Number(transportValue) > 0 ? Math.round((Number(ivaTransp) / Number(transportValue)) * 100) : 0}%):</span> <strong>${ivaTransp} €</strong></div>
     <div style="margin: 5px 0; border-top: 0.5px dashed #ccc; width: 250px; margin-left: auto;"></div>
     <div class="line"><span>Caução (Garantia/Isento):</span> <strong>${depositValue} €</strong></div>
     <div class="total-final">

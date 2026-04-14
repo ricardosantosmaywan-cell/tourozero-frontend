@@ -186,6 +186,8 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
         }
     };
 
+    const subMatsRef = Number((liveTotal || 0) - (liveTransport || 0) - (liveDeposit || 0) - (liveIvaMats || 0) - (liveIvaTransp || 0));
+
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-2 md:p-4 animate-in fade-in overflow-y-auto">
             <div className="w-full max-w-4xl rounded-2xl bg-slate-900 border border-slate-800 p-4 md:p-6 shadow-2xl my-4">
@@ -293,10 +295,10 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
                                     <tbody className="divide-y divide-slate-700/30">
                                         <tr>
                                             <td className="px-3 py-1 text-slate-400 flex items-center gap-1.5">Subtotal Materiais</td>
-                                            <td className="px-3 py-1 text-right font-semibold text-slate-100">{Number((liveTotal || 0) - (liveTransport || 0) - (liveDeposit || 0) - (liveIvaMats || 0) - (liveIvaTransp || 0)).toFixed(2)} €</td>
+                                            <td className="px-3 py-1 text-right font-semibold text-slate-100">{subMatsRef.toFixed(2)} €</td>
                                         </tr>
                                         <tr>
-                                            <td className="px-3 py-1 text-slate-500 flex items-center gap-1.5 pl-6">IVA Materiais</td>
+                                            <td className="px-3 py-1 text-slate-500 flex items-center gap-1.5 pl-6">IVA Materiais ({subMatsRef > 0 ? Math.round((liveIvaMats / subMatsRef) * 100) : 0}%)</td>
                                             <td className="px-3 py-1 text-right font-medium text-slate-400">{Number(liveIvaMats || 0).toFixed(2)} €</td>
                                         </tr>
                                         <tr>
@@ -304,7 +306,7 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
                                             <td className="px-3 py-1 text-right font-semibold text-slate-100">{Number(liveTransport || 0).toFixed(2)} €</td>
                                         </tr>
                                         <tr>
-                                            <td className="px-3 py-1 text-slate-500 flex items-center gap-1.5 pl-6">IVA Transporte</td>
+                                            <td className="px-3 py-1 text-slate-500 flex items-center gap-1.5 pl-6">IVA Transporte ({liveTransport > 0 ? Math.round((liveIvaTransp / liveTransport) * 100) : 0}%)</td>
                                             <td className="px-3 py-1 text-right font-medium text-slate-400">{Number(liveIvaTransp || 0).toFixed(2)} €</td>
                                         </tr>
                                         <tr>
