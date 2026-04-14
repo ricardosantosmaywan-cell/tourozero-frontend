@@ -279,7 +279,13 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
                                 </div>
                                 <div>
                                     <p className="text-[10px] font-medium text-slate-500 uppercase flex items-center gap-1"><Clock className="h-2.5 w-2.5" /> Duração</p>
-                                    <p className="text-sm font-semibold text-slate-100">{rental.semanas} semana(s)</p>
+                                    <p className="text-sm font-semibold text-slate-100">
+                                        {rental.rental_duration_value || rental.semanas} {
+                                            (rental.rental_duration_type === 'dia' ? 
+                                                ((rental.rental_duration_value || 1) === 1 ? 'dia' : 'dias') : 
+                                                ((rental.rental_duration_value || rental.semanas || 1) === 1 ? 'semana' : 'semanas'))
+                                        }
+                                    </p>
                                 </div>
                                 <div>
                                     <p className="text-[10px] font-medium text-slate-500 uppercase flex items-center gap-1"><Activity className="h-2.5 w-2.5" /> Status</p>

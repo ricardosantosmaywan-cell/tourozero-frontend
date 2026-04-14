@@ -53,6 +53,8 @@ export interface Rental {
     iva_materials?: number;
     iva_transport?: number;
     payment_status?: 'pending' | 'paid';
+    rental_duration_type?: 'dia' | 'semana';
+    rental_duration_value?: number;
     itemsCount: number;
     items: RentalItem[];
     extensions_history?: any[];
@@ -246,6 +248,8 @@ export function useGlobalRentals() {
                     iva_transport: ivaTransp,
                     materials_value: total - transport - deposit - ivaMats - ivaTransp, // Faturamento Líquido (Real)
                     payment_status: r.payment_status || 'pending',
+                    rental_duration_type: r.rental_duration_type || 'semana',
+                    rental_duration_value: r.rental_duration_value || r.semanas || 1,
                     extensions_history: r.extensions_history || [],
                     created_at: r.created_at,
                     itemsCount: Array.isArray(rawItems) ? rawItems.reduce((sum: number, it: any) => sum + (it.quantity || 0), 0) : 0,
@@ -288,7 +292,9 @@ export function useGlobalRentals() {
                 iva_materials: newRentalData.iva_materials || 0,
                 iva_transport: newRentalData.iva_transport || 0,
                 payment_status: newRentalData.payment_status || 'pending',
-                // extensions_history: newRentalData.extensions_history || [] 
+                rental_duration_type: newRentalData.rental_duration_type || 'semana',
+                rental_duration_value: newRentalData.rental_duration_value || 1,
+                extensions_history: newRentalData.extensions_history || [] 
             };
 
             const { data: insertedRental, error: rentalError } = await supabase.from('rentals').insert([rentalPayload]).select().single();
@@ -361,7 +367,9 @@ export function useGlobalRentals() {
                 iva_materials: updatedData.iva_materials || 0,
                 iva_transport: updatedData.iva_transport || 0,
                 payment_status: updatedData.payment_status || 'pending',
-                // extensions_history: updatedData.extensions_history 
+                rental_duration_type: updatedData.rental_duration_type || 'semana',
+                rental_duration_value: updatedData.rental_duration_value || 1,
+                extensions_history: updatedData.extensions_history || []
             };
             if (updatedData.customers?.id || updatedData.customer_id) {
                 rentalPayload.customer_id = updatedData.customers?.id || updatedData.customer_id;

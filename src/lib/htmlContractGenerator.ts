@@ -17,6 +17,11 @@ export function printRentalContractHTML(rental: Rental) {
     const totalAmount = Number(rental.total_amount || 0).toFixed(2);
     const materialsValue = (Number(rental.total_amount || 0) - Number(rental.deposit_value || 0) - Number(rental.transport_value || 0) - Number(rental.iva_materials || 0) - Number(rental.iva_transport || 0)).toFixed(2);
     const deliveryAddress = rental.delivery_address || 'Recolha nas instalações';
+    
+    // Período de Aluguer Formatado
+    const durationVal = rental.rental_duration_value || rental.semanas || 1;
+    const durationType = rental.rental_duration_type === 'dia' ? (durationVal === 1 ? 'Dia' : 'Dias') : (durationVal === 1 ? 'Semana' : 'Semanas');
+    const durationText = `${durationVal} ${durationType}`;
 
     // Conjuntos de andaimes
     let quantitySets: number = 0;
@@ -268,7 +273,7 @@ body {
   O Primeiro Outorgante cede ao Segundo Outorgante, a título de aluguer, os equipamentos detalhados neste documento, garantindo o seu bom estado de funcionamento no momento da entrega.</p>
 
   <p><strong>CLÁUSULA SEGUNDA (Prazo):</strong><br>
-  O aluguer tem início na data de recolha (${startDate}) e término na data prevista de entrega (${endDate}), podendo ser prorrogado mediante acordo prévio e pagamento antecipado.</p>
+  O aluguer tem início na data de recolha (${startDate}) e término na data prevista de entrega (${endDate}), correspondendo a um período de <strong>${durationText}</strong>, podendo ser prorrogado mediante acordo prévio e pagamento antecipado.</p>
 
   <p><strong>CLÁUSULA TERCEIRA:</strong><br>
   UM – Cedência de ${quantitySets} Conjuntos (2 laterais, 1 cruzeta, 1 travão, 1 prancha).<br>

@@ -32,7 +32,8 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
     const [depositFee, setDepositFee] = useState<number>(0);
     const [ivaMaterials, setIvaMaterials] = useState<number>(0);
     const [ivaTransport, setIvaTransport] = useState<number>(0);
-    const [durationWeeks, setDurationWeeks] = useState<number | ''>(1);
+    const [durationValue, setDurationValue] = useState<number>(1);
+    const [durationUnit, setDurationUnit] = useState<'dia' | 'semana'>('semana');
     const [paymentStatus, setPaymentStatus] = useState<'pending' | 'paid'>('pending');
     const [deliveryAddress, setDeliveryAddress] = useState('');
     const [notes, setNotes] = useState('');
@@ -51,7 +52,8 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
                 setSelectedCustomer(rentalToEdit.customers);
                 setPickupDate(rentalToEdit.pickup_date);
                 setReturnDate(rentalToEdit.return_date);
-                setDurationWeeks(rentalToEdit.semanas || 1);
+                setDurationValue(rentalToEdit.rental_duration_value || rentalToEdit.semanas || 1);
+                setDurationUnit(rentalToEdit.rental_duration_type || 'semana');
                 setDeliveryAddress(rentalToEdit.delivery_address || '');
                 setPaymentStatus(rentalToEdit.payment_status || 'pending');
                 setNotes(rentalToEdit.observacoes || '');
@@ -152,11 +154,29 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
         setShowCustomerForm(false);
         setNewCustomerData({ full_name: '', phone: '', address: '', tax_id: '', email: '', document_id: '' });
         setFormError('');
-        setDurationWeeks(1);
+        setDurationValue(1);
+        setDurationUnit('semana');
         setDeliveryAddress('');
         setNotes('');
         setExtensionReason('');
     }
+
+    // Cálculo automático da data de entrega
+    useEffect(() => {
+        if (!pickupDate || !durationValue) return;
+
+        const start = new Date(pickupDate);
+        if (isNaN(start.getTime())) return;
+
+        const resultDate = new Date(start);
+        if (durationUnit === 'semana') {
+            resultDate.setDate(start.getDate() + (durationValue * 7));
+        } else {
+            resultDate.setDate(start.getDate() + durationValue);
+        }
+
+        setReturnDate(resultDate.toISOString().split('T')[0]);
+    }, [pickupDate, durationValue, durationUnit]);
 
     async function searchCustomer() {
         setFormError('');
@@ -241,7 +261,6 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
             return;
         }
 
-        const finalSemanas = (typeof durationWeeks === 'number' && durationWeeks > 0) ? durationWeeks : 0;
         
         const calcIvaMats = (manualTotal * (ivaMaterials / 100));
         const calcIvaTransp = (transportFee * (ivaTransport / 100));
@@ -256,8 +275,8 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
             customers: customerToUse,
             pickup_date: pickupDate,
             return_date: returnDate,
-            semanas: finalSemanas,
-            delivery_address: deliveryAddress,
+            rental_duration_type: durationUnit,
+            rental_duration_value: durationValue,
             total_amount: totalPayload,
             transport_value: transportFee || 0,
             deposit_value: depositFee || 0,
@@ -401,12 +420,35 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
                                     <Input type="date" required className="h-8 text-[10px] px-1" value={pickupDate} onChange={e => setPickupDate(e.target.value)} />
                                 </div>
                                 <div>
-                                    <label className="block text-[9px] font-bold text-slate-500 uppercase mb-0.5">Entrega</label>
-                                    <Input type="date" required className="h-8 text-[10px] px-1" value={returnDate} onChange={e => setReturnDate(e.target.value)} />
+                                    <label className="block text-[9px] font-bold text-slate-500 uppercase mb-0.5">Duração</label>
+                                    <div className="flex gap-1 h-8">
+                                        <Input 
+                                            type="number" 
+                                            min="1" 
+                                            required 
+                                            className="w-12 h-full text-xs" 
+                                            value={durationValue} 
+                                            onChange={e => setDurationValue(parseInt(e.target.value) || 1)} 
+                                        />
+                                        <select
+                                            value={durationUnit}
+                                            onChange={(e) => setDurationUnit(e.target.value as any)}
+                                            className="flex-1 h-full rounded-md border border-slate-800 bg-slate-900 px-1 text-[10px] text-slate-50 focus:ring-1 focus:ring-amber-500"
+                                        >
+                                            <option value="dia">Dia(s)</option>
+                                            <option value="semana">Semana(s)</option>
+                                        </select>
+                                    </div>
                                 </div>
                                 <div>
-                                    <label className="block text-[9px] font-bold text-slate-500 uppercase mb-0.5">Semanas</label>
-                                    <Input type="number" min="1" required className="h-8 text-xs" value={durationWeeks} onChange={e => setDurationWeeks(e.target.value === '' ? '' : parseInt(e.target.value))} />
+                                    <label className="block text-[9px] font-bold text-slate-500 uppercase mb-0.5">Entrega Prevista</label>
+                                    <Input 
+                                        type="date" 
+                                        required 
+                                        className="h-8 text-[10px] px-1 bg-slate-900/50 border-emerald-500/20 text-emerald-400 font-bold" 
+                                        value={returnDate} 
+                                        onChange={e => setReturnDate(e.target.value)} 
+                                    />
                                 </div>
                             </div>
                         </div>
