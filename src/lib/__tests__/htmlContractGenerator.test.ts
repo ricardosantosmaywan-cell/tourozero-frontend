@@ -4,13 +4,13 @@ import { printRentalContractHTML } from '../htmlContractGenerator';
 describe('htmlContractGenerator', () => {
     beforeEach(() => {
         // Mock the global window object since Vitest runs in Node.js
-        global.window = {
+        (globalThis as any).window = {
             open: vi.fn()
         } as any;
     });
 
     afterEach(() => {
-        delete (global as any).window;
+        delete (globalThis as any).window;
     });
 
     it('gera o HTML do contrato corretamente sem erros e abre a janela de impressão', () => {
@@ -20,7 +20,7 @@ describe('htmlContractGenerator', () => {
             write: vi.fn(),
             close: vi.fn()
         };
-        const windowOpenSpy = vi.spyOn(global.window, 'open').mockReturnValue({ document: mockDocument } as any);
+        const windowOpenSpy = vi.spyOn((globalThis as any).window, 'open').mockReturnValue({ document: mockDocument } as any);
 
         const mockRental = {
             id: '123',
