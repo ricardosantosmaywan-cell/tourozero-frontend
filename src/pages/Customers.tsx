@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -38,11 +38,13 @@ export default function Customers() {
         return mockRentalsDataset.filter(r => r.customer_id === customerId);
     };
 
-    const filteredCustomers = customers.filter(c => {
-        const matchesSearch = c.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || c.tax_id?.includes(searchTerm);
-        const matchesDate = filterDate ? c.created_at?.startsWith(filterDate) : true;
-        return matchesSearch && matchesDate;
-    });
+    const filteredCustomers = useMemo(() => {
+        return customers.filter(c => {
+            const matchesSearch = c.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || c.tax_id?.includes(searchTerm);
+            const matchesDate = filterDate ? c.created_at?.startsWith(filterDate) : true;
+            return matchesSearch && matchesDate;
+        });
+    }, [customers, searchTerm, filterDate]);
 
     function openNewModal() {
         setCustomerToEdit(null);

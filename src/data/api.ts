@@ -53,6 +53,7 @@ export interface Rental {
     iva_materials?: number;
     iva_transport?: number;
     payment_status?: 'pending' | 'paid';
+    received_by?: string;
     rental_duration_type?: 'dia' | 'semana';
     rental_duration_value?: number;
     itemsCount: number;
@@ -70,6 +71,7 @@ export function useGlobalCustomers() {
     const [loading, setLoading] = useState(true);
 
     async function fetchCustomers() {
+        await Promise.resolve();
         setLoading(true);
         const { data, error } = await supabase.from('customers').select('*').order('created_at', { ascending: false });
         if (!error && data) {
@@ -79,6 +81,7 @@ export function useGlobalCustomers() {
     }
 
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         fetchCustomers();
     }, []);
 
@@ -149,6 +152,7 @@ export function useGlobalProducts() {
     const [loading, setLoading] = useState(true);
 
     async function fetchProducts() {
+        await Promise.resolve();
         setLoading(true);
         const { data, error } = await supabase.from('products').select('*').order('name');
         if (!error && data) {
@@ -158,6 +162,7 @@ export function useGlobalProducts() {
     }
 
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         fetchProducts();
     }, []);
 
@@ -212,6 +217,7 @@ export function useGlobalRentals() {
     const [loading, setLoading] = useState(true);
 
     async function fetchRentals() {
+        await Promise.resolve();
         setLoading(true);
         const { data, error } = await supabase
             .from('rentals')
@@ -248,6 +254,7 @@ export function useGlobalRentals() {
                     iva_transport: ivaTransp,
                     materials_value: total - transport - deposit - ivaMats - ivaTransp, // Faturamento Líquido (Real)
                     payment_status: r.payment_status || 'pending',
+                    received_by: r.received_by || 'Não definido',
                     rental_duration_type: r.rental_duration_type || 'semana',
                     rental_duration_value: r.rental_duration_value || r.semanas || 1,
                     extensions_history: r.extensions_history || [],
@@ -292,6 +299,7 @@ export function useGlobalRentals() {
                 iva_materials: newRentalData.iva_materials || 0,
                 iva_transport: newRentalData.iva_transport || 0,
                 payment_status: newRentalData.payment_status || 'pending',
+                received_by: newRentalData.received_by || 'Não definido',
                 rental_duration_type: newRentalData.rental_duration_type || 'semana',
                 rental_duration_value: newRentalData.rental_duration_value || 1,
                 extensions_history: newRentalData.extensions_history || [] 
@@ -367,6 +375,7 @@ export function useGlobalRentals() {
                 iva_materials: updatedData.iva_materials || 0,
                 iva_transport: updatedData.iva_transport || 0,
                 payment_status: updatedData.payment_status || 'pending',
+                received_by: updatedData.received_by || 'Não definido',
                 rental_duration_type: updatedData.rental_duration_type || 'semana',
                 rental_duration_value: updatedData.rental_duration_value || 1,
                 extensions_history: updatedData.extensions_history || []
@@ -433,11 +442,7 @@ export function useGlobalRentals() {
 
     const updateRentalPartial = async (id: string, partialData: any) => {
         try {
-            // Filtrar extensions_history se a coluna ainda não existir
-            const sanitizedData = { ...partialData };
-            delete sanitizedData.extensions_history;
-
-            const { error } = await supabase.from('rentals').update(sanitizedData).eq('id', id);
+            const { error } = await supabase.from('rentals').update(partialData).eq('id', id);
             if (error) throw new Error(error.message);
             await fetchRentals();
         } catch (e: any) {

@@ -28,11 +28,13 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
     const [liveIvaMats, setLiveIvaMats] = useState<number>(0);
     const [liveIvaTransp, setLiveIvaTransp] = useState<number>(0);
     const [liveTotal, setLiveTotal] = useState<number>(0);
+    const [liveReceivedBy, setLiveReceivedBy] = useState<string>('Não definido');
 
     useEffect(() => {
         if (!isOpen || !rental) return;
 
         setNotes(rental.observacoes || '');
+        setLiveReceivedBy(rental.received_by || 'Não definido');
         // Usar itens já mapeados no rental como estado inicial para evitar "Nenhum produto" visual
         if (rental.items && rental.items.length > 0) {
             setFetchedItems(rental.items);
@@ -44,7 +46,7 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
                 // Fetch Financials frescos
                 const { data: rentData } = await supabase
                     .from('rentals')
-                    .select('transport_value, deposit_value, iva_materials, iva_transport, total_amount, observacoes')
+                    .select('transport_value, deposit_value, iva_materials, iva_transport, total_amount, observacoes, received_by')
                     .eq('id', rental.id)
                     .single();
                 
@@ -55,6 +57,7 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
                     setLiveIvaTransp(Number(rentData.iva_transport || 0));
                     setLiveTotal(Number(rentData.total_amount || 0));
                     setNotes(rentData.observacoes || '');
+                    setLiveReceivedBy(rentData.received_by || 'Não definido');
                 }
 
                 // Busca Profunda de Itens (com alias para segurança)
@@ -100,9 +103,14 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
         onClose();
     };
 
-    const handleConfirmProlong = async (daysDiff: number, extraValue: number, note: string, newItems: any[], newReturnDateStr: string) => {
+    const handleConfirmProlong = async (daysDiff: number, extraValue: number, note: string, newItems: any[], newReturnDateStr: string, depositValue: number, transportValue: number, receivedBy: string) => {
         const oldTotal = Number(rental.total_amount || 0);
-        const newTotal = oldTotal + extraValue;
+        
+        // O extraValue vindo do modal é apenas o adicional de materiais.
+        // O novo total é o total antigo + extra de materiais + diferença de caução/transporte (se houver alteração manual)
+        const diffDeposit = depositValue - (Number(rental.deposit_value || 0));
+        const diffTransport = transportValue - (Number(rental.transport_value || 0));
+        const newTotal = oldTotal + extraValue + diffDeposit + diffTransport;
         
         // Calcular novo total de semanas (original + fração do prolongamento)
         const oldWeeks = Number(rental.semanas || 0);
@@ -114,11 +122,16 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
             date: new Date().toISOString(),
             type: 'prolongamento',
             days_added: daysDiff,
-            extra_value: extraValue,
+            extra_materials: extraValue,
             old_return_date: rental.return_date,
             new_return_date: newReturnDateStr,
             old_value: oldTotal,
             new_value: newTotal,
+            old_deposit: Number(rental.deposit_value || 0),
+            new_deposit: depositValue,
+            old_transport: Number(rental.transport_value || 0),
+            new_transport: transportValue,
+            received_by: receivedBy || 'Ricardo',
             note: note,
             added_items: newItems.map(it => ({ name: it.product.name, quantity: it.quantity }))
         };
@@ -126,11 +139,15 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
         const updatedHistory = [...(rental.extensions_history || []), extensionEntry];
 
         try {
-            // 1. Atualizar Header do Aluguer
+            // 1. Atualizar Header do Aluguer no DB
             await updateRentalPartial(rental.id, {
                 return_date: newReturnDateStr,
-                total_amount: newTotal,
+                total_amount: Number(newTotal.toFixed(2)),
+                deposit_value: Number(depositValue.toFixed(2)),
+                transport_value: Number(transportValue.toFixed(2)),
+                received_by: receivedBy || 'Ricardo',
                 semanas: newWeeksTotal,
+                rental_duration_value: newWeeksTotal, // Sincronizar com a nova duração total
                 extensions_history: updatedHistory
             });
 
@@ -293,6 +310,12 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
                                         {rental.status === 'active' ? 'Ativo' : rental.status === 'completed' ? 'Concluído' : rental.status}
                                     </span>
                                 </div>
+                                <div>
+                                    <p className="text-[10px] font-medium text-slate-500 uppercase flex items-center gap-1"><User className="h-2.5 w-2.5" /> Recebido por</p>
+                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${liveReceivedBy === 'Ricardo' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-purple-500/10 text-purple-400 border-purple-500/20'}`}>
+                                        {liveReceivedBy}
+                                    </span>
+                                </div>
                             </div>
 
                             {/* Tabela de Valores Slim */}
@@ -315,9 +338,9 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
                                             <td className="px-3 py-1 text-slate-500 flex items-center gap-1.5 pl-6">IVA Transporte ({liveTransport > 0 ? Math.round((liveIvaTransp / liveTransport) * 100) : 0}%)</td>
                                             <td className="px-3 py-1 text-right font-medium text-slate-400">{Number(liveIvaTransp || 0).toFixed(2)} €</td>
                                         </tr>
-                                        <tr>
-                                            <td className="px-3 py-1 text-slate-400 flex items-center gap-1.5">Caução (Garantia)</td>
-                                            <td className="px-3 py-1 text-right font-medium text-blue-400">{Number(liveDeposit || 0).toFixed(2)} €</td>
+                                        <tr className="bg-blue-500/10 border-y border-blue-500/20">
+                                            <td className="px-3 py-2 text-blue-400 font-bold flex items-center gap-1.5 uppercase tracking-tighter">Caução Total Acumulada</td>
+                                            <td className="px-3 py-2 text-right font-black text-blue-400">{Number(liveDeposit || 0).toFixed(2)} €</td>
                                         </tr>
                                         <tr className="bg-amber-500/5">
                                             <td className="px-3 py-2 text-slate-100 font-bold flex items-center gap-1.5 uppercase tracking-tighter"><CreditCard className="h-3 w-3 text-amber-500" /> Total a Pagar</td>
@@ -327,6 +350,65 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
                                 </table>
                             </div>
                         </div>
+                    </div>
+                </div>
+
+                {/* Linha do Tempo / Timeline do Contrato */}
+                <div className="md:col-span-3 mt-4 p-4 bg-slate-950/50 rounded-xl border border-slate-800 shadow-inner">
+                    <h3 className="text-[11px] uppercase tracking-widest font-black text-slate-400 mb-4 flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-amber-500" /> Histórico deste Contrato (Timeline)
+                    </h3>
+                    
+                    <div className="space-y-3 relative before:absolute before:inset-0 before:left-2 before:w-0.5 before:bg-slate-800 before:pointer-events-none pb-2">
+                        {/* Evento Inicial */}
+                        <div className="relative pl-7 group">
+                            <div className="absolute left-[3px] top-1.5 w-2.5 h-2.5 rounded-full bg-slate-700 border-2 border-slate-900 z-10 group-hover:bg-amber-500 transition-colors"></div>
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 p-2.5 rounded-lg bg-slate-900/40 border border-slate-800 group-hover:border-slate-700 transition-all">
+                                <div>
+                                    <span className="text-[10px] font-black text-slate-500 uppercase block mb-0.5">{new Date(rental.pickup_date).toLocaleDateString('pt-PT')}</span>
+                                    <span className="text-sm font-bold text-slate-200">Aluguer Inicial (Abertura)</span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <span className="text-xs font-medium text-emerald-500 bg-emerald-500/5 px-2 py-0.5 rounded border border-emerald-500/10">
+                                        Pago: {Number(rental.extensions_history && rental.extensions_history.length > 0 ? rental.extensions_history[0].old_value : (liveTotal || 0)).toFixed(2)}€
+                                    </span>
+                                    {(rental.extensions_history && rental.extensions_history.length > 0 ? rental.extensions_history[0].old_deposit : liveDeposit) > 0 && (
+                                        <span className="text-xs font-bold text-blue-400 bg-blue-500/5 px-2 py-0.5 rounded border border-blue-500/10">
+                                            Caução: {Number(rental.extensions_history && rental.extensions_history.length > 0 ? rental.extensions_history[0].old_deposit : liveDeposit).toFixed(2)}€
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Prolongamentos */}
+                        {rental.extensions_history && rental.extensions_history.map((ext: any, i: number) => (
+                            <div key={i} className="relative pl-7 group">
+                                <div className="absolute left-[3px] top-1.5 w-2.5 h-2.5 rounded-full bg-amber-500 border-2 border-slate-900 z-10 animate-pulse"></div>
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 p-2.5 rounded-lg bg-slate-900/60 border border-slate-700/50 hover:border-amber-500/30 transition-all">
+                                    <div>
+                                        <span className="text-[10px] font-black text-amber-500/70 uppercase block mb-0.5">{new Date(ext.date).toLocaleDateString('pt-PT')}</span>
+                                        <span className="text-sm font-bold text-slate-100 flex items-center gap-2">
+                                            Prolongamento de {ext.days_added} dias 
+                                            <span className="text-[10px] font-medium text-slate-500 bg-slate-800 px-1.5 py-0.5 rounded">
+                                                Até {new Date(ext.new_return_date).toLocaleDateString('pt-PT')}
+                                            </span>
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-xs font-black text-emerald-400">
+                                            + {Number(ext.extra_materials || ext.extra_value || 0).toFixed(2)}€
+                                        </span>
+                                        {Number(ext.new_deposit - ext.old_deposit) > 0 && (
+                                            <span className="text-xs font-bold text-blue-400">
+                                                + {Number(ext.new_deposit - ext.old_deposit).toFixed(2)}€ (Caução)
+                                            </span>
+                                        )}
+                                        {ext.note && <span className="text-[10px] italic text-slate-500 max-w-[150px] truncate" title={ext.note}>"{ext.note}"</span>}
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
 
@@ -343,37 +425,6 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
                             onChange={(e) => setNotes(e.target.value)}
                         />
                     </div>
-                    
-                    {/* Histórico de Prolongamentos */}
-                    {rental.extensions_history && rental.extensions_history.length > 0 && (
-                        <div className="md:col-span-3 mt-1 p-3 bg-slate-800/40 rounded-lg border border-slate-800/60">
-                            <h3 className="text-[11px] uppercase tracking-wider font-bold text-amber-500 mb-3 flex items-center gap-1.5">
-                                <Clock className="h-3 w-3" /> Histórico de Datas e Valores
-                            </h3>
-                            <div className="space-y-2 max-h-[140px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-700">
-                                {[...rental.extensions_history].reverse().map((ext: any, i: number) => (
-                                    <div key={i} className="text-xs text-slate-300 p-2 bg-slate-900/50 rounded border border-slate-700/50 flex flex-col gap-1 items-start relative pl-4 mt-2">
-                                        {/* Timeline Dot */}
-                                        <div className="absolute left-0 top-2.5 w-1.5 h-1.5 bg-amber-500 rounded-full shadow-[0_0_8px_rgba(245,158,11,0.6)]"></div>
-                                        <div className="flex w-full justify-between items-center text-[10px] text-slate-500 font-bold uppercase mb-0.5">
-                                            <span>Modificado a {new Date(ext.date).toLocaleDateString('pt-PT')}</span>
-                                        </div>
-                                        <div className="w-full">
-                                            {ext.old_return_date !== ext.new_return_date && (
-                                                <span className="block text-[11px]">Nova data: <span className="text-amber-500 font-bold">{ext.new_return_date ? new Date(ext.new_return_date).toLocaleDateString('pt-PT') : '-'}</span> <span className="opacity-50 line-through text-[9px]">(era {ext.old_return_date ? new Date(ext.old_return_date).toLocaleDateString('pt-PT') : '-'})</span></span>
-                                            )}
-                                            {ext.old_value !== ext.new_value && (
-                                                <span className="block text-[11px]">Novo valor: <span className="text-emerald-400 font-bold">{Number(ext.new_value || 0).toFixed(2)} €</span> <span className="opacity-50 line-through text-[9px]">(era {Number(ext.old_value || 0).toFixed(2)} €)</span></span>
-                                            )}
-                                            {ext.reason && (
-                                                <span className="block mt-1.5 bg-slate-800/60 p-1.5 rounded text-amber-400/90 italic border border-amber-500/10">"{ext.reason}"</span>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
                     
                     <div className="md:col-span-3">
                         <Button 

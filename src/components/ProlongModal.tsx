@@ -8,13 +8,16 @@ interface ProlongModalProps {
     isOpen: boolean;
     onClose: () => void;
     rental: any;
-    onConfirm: (daysDiff: number, extraValue: number, note: string, newItems: any[], newReturnDateStr: string) => Promise<void>;
+    onConfirm: (daysDiff: number, extraValue: number, note: string, newItems: any[], newReturnDateStr: string, depositValue: number, transportValue: number, receivedBy: string) => Promise<void>;
 }
 
 export function ProlongModal({ isOpen, onClose, rental, onConfirm }: ProlongModalProps) {
     const { products } = useGlobalProducts();
     const [newReturnDate, setNewReturnDate] = useState('');
-    const [extraValue, setExtraValue] = useState(0);
+    const [extraValue, setExtraValue] = useState(0); // Este é o valor ADICIONAL de materiais
+    const [depositValue, setDepositValue] = useState(rental?.deposit_value || 0);
+    const [transportValue, setTransportValue] = useState(rental?.transport_value || 0);
+    const [receivedBy, setReceivedBy] = useState('Ricardo');
     const [note, setNote] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     
@@ -26,13 +29,18 @@ export function ProlongModal({ isOpen, onClose, rental, onConfirm }: ProlongModa
     // Data de hoje (Registo)
     const today = new Date().toLocaleDateString('pt-PT');
 
-    // Inicializar data (padrão: +1 semana do fim atual)
+    // Inicializar data (padrão: +1 semana do fim atual) e valores
     useEffect(() => {
         if (rental && rental.return_date && !newReturnDate) {
             const current = new Date(rental.return_date);
             const next = new Date(current);
             next.setDate(next.getDate() + 7);
             setNewReturnDate(next.toISOString().split('T')[0]);
+        }
+        if (rental) {
+            setDepositValue(rental.deposit_value || 0);
+            setTransportValue(rental.transport_value || 0);
+            setReceivedBy(rental.received_by || 'Ricardo');
         }
     }, [rental, isOpen]);
 
@@ -46,7 +54,7 @@ export function ProlongModal({ isOpen, onClose, rental, onConfirm }: ProlongModa
         return diffDays > 0 ? diffDays : 0;
     }, [rental, newReturnDate]);
 
-    // Cálculo Inteligente de Valor Baseado em Dias
+    // Cálculo Inteligente de Valor Baseado em Dias (APENAS MATERIAIS EXTRAS)
     useEffect(() => {
         if (!rental || daysDiff <= 0) return;
 
@@ -70,6 +78,17 @@ export function ProlongModal({ isOpen, onClose, rental, onConfirm }: ProlongModa
 
         setExtraValue(Number(calculatedExtra.toFixed(2)));
     }, [daysDiff, newItems, rental, products]);
+
+    // Cálculo do NOVO TOTAL ACUMULADO
+    const newTotalCalculated = useMemo(() => {
+        if (!rental) return 0;
+        
+        // Diferenças de caução e transporte
+        const diffDeposit = depositValue - (rental.deposit_value || 0);
+        const diffTransport = transportValue - (rental.transport_value || 0);
+        
+        return Number(rental.total_amount || 0) + extraValue + diffDeposit + diffTransport;
+    }, [rental, extraValue, depositValue, transportValue]);
 
     if (!isOpen || !rental) return null;
 
@@ -95,8 +114,8 @@ export function ProlongModal({ isOpen, onClose, rental, onConfirm }: ProlongModa
         }
         setIsSubmitting(true);
         try {
-            // Enviamos daysDiff / 7 para manter compatibilidade com campo semanas se necessário
-            await onConfirm(daysDiff, extraValue, note, newItems, newReturnDate);
+            // onConfirm(daysDiff, extraValue, note, newItems, newReturnDateStr, depositValue, transportValue, receivedBy)
+            await onConfirm(daysDiff, extraValue, note, newItems, newReturnDate, depositValue, transportValue, receivedBy);
             onClose();
         } catch (error) {
             console.error(error);
@@ -107,7 +126,7 @@ export function ProlongModal({ isOpen, onClose, rental, onConfirm }: ProlongModa
 
     return (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/95 p-4 animate-in fade-in overflow-y-auto">
-            <div className="w-full max-w-xl rounded-2xl bg-slate-900 border border-amber-500/40 p-5 md:p-8 shadow-2xl my-8">
+            <div className="w-full max-w-2xl rounded-2xl bg-slate-900 border border-amber-500/40 p-5 md:p-8 shadow-2xl my-8">
                 <div className="flex items-center justify-between mb-6">
                     <div>
                         <h2 className="text-xl font-black tracking-tight text-slate-50 flex items-center gap-2 uppercase">
@@ -125,7 +144,7 @@ export function ProlongModal({ isOpen, onClose, rental, onConfirm }: ProlongModa
 
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Configuração do Tempo */}
+                        {/* Configuração do Tempo e Extras de Valor */}
                         <div className="space-y-4 p-4 bg-slate-800/30 rounded-xl border border-slate-800/50">
                             <div className="space-y-2">
                                 <label className="text-[11px] font-bold text-amber-500/80 uppercase flex items-center gap-1.5">
@@ -139,27 +158,67 @@ export function ProlongModal({ isOpen, onClose, rental, onConfirm }: ProlongModa
                                     min={rental.return_date}
                                     onChange={e => setNewReturnDate(e.target.value)}
                                 />
-                                <div className="p-3 bg-amber-500/5 rounded-lg border border-amber-500/10 mt-2">
-                                    <p className="text-[10px] text-slate-400 uppercase font-medium">Prolongamento de:</p>
-                                    <p className="text-lg font-black text-amber-500">{daysDiff} <span className="text-[10px] uppercase">Dias</span></p>
+                                <div className="p-2 bg-amber-500/5 rounded-lg border border-amber-500/10 mt-1">
+                                    <p className="text-[10px] text-slate-500 uppercase font-medium">Prolongamento de {daysDiff} Dias</p>
                                 </div>
                             </div>
 
                             <div className="space-y-2 pt-2">
                                 <label className="text-[11px] font-bold text-emerald-500/80 uppercase flex items-center gap-1.5">
-                                    <Euro className="h-3 w-3" /> Valor deste Prolongamento
+                                    <Euro className="h-3 w-3" /> Valor Extra Materiais
                                 </label>
                                 <Input 
                                     type="number" 
                                     step="0.01" 
                                     min="0" 
                                     required 
-                                    className="bg-slate-950 border-emerald-500/20 text-xl font-black text-emerald-500 h-12"
+                                    className="bg-slate-950 border-emerald-500/20 text-lg font-black text-emerald-500 h-11"
                                     value={extraValue}
                                     onChange={e => setExtraValue(parseFloat(e.target.value) || 0)}
                                 />
-                                <p className="text-[9px] text-slate-500 italic px-1">
-                                    Calculado automaticamente. Podes editar se necessário.
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3 pt-2">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-blue-400 uppercase">Caução Acumulada</label>
+                                    <Input 
+                                        type="number" 
+                                        step="0.01"
+                                        className="bg-slate-950 border-slate-800 h-9 text-xs font-bold text-blue-400"
+                                        value={depositValue}
+                                        onChange={e => setDepositValue(parseFloat(e.target.value) || 0)}
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase">Transporte Total</label>
+                                    <Input 
+                                        type="number" 
+                                        step="0.01"
+                                        className="bg-slate-950 border-slate-800 h-9 text-xs font-bold text-slate-400"
+                                        value={transportValue}
+                                        onChange={e => setTransportValue(parseFloat(e.target.value) || 0)}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="pt-3 border-t border-slate-700/50 flex flex-col gap-3">
+                                <div className="flex flex-col">
+                                    <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1">Recebido por</label>
+                                    <select
+                                        value={receivedBy}
+                                        onChange={(e) => setReceivedBy(e.target.value)}
+                                        className="h-8 px-2 bg-slate-900 border border-slate-700 text-[10px] text-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                    >
+                                        <option value="Ricardo">Ricardo</option>
+                                        <option value="Gabriel">Gabriel</option>
+                                    </select>
+                                </div>
+                                <div className="flex justify-between items-center bg-emerald-500/10 p-3 rounded-lg border border-emerald-500/20">
+                                    <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Novo Total do Contrato:</span>
+                                    <span className="text-xl font-black text-emerald-500">{newTotalCalculated.toFixed(2)} €</span>
+                                </div>
+                                <p className="text-[9px] text-slate-500 mt-2 italic px-1">
+                                    * Inclui materiais originais + adicionais + transporte + caução.
                                 </p>
                             </div>
                         </div>
@@ -196,7 +255,7 @@ export function ProlongModal({ isOpen, onClose, rental, onConfirm }: ProlongModa
                                     <div key={idx} className="flex items-center justify-between p-2 bg-slate-950/50 rounded-lg border border-slate-800/50 text-[11px]">
                                         <span className="text-slate-200"><span className="text-blue-400 font-bold">{item.quantity}x</span> {item.product.name}</span>
                                         <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-red-500 hover:bg-red-500/10" onClick={() => handleRemoveItem(idx)}>
-                                            <Trash2 className="h-3 h-3" />
+                                            <Trash2 className="h-3 w-3" />
                                         </Button>
                                     </div>
                                 )) : (
@@ -231,4 +290,3 @@ export function ProlongModal({ isOpen, onClose, rental, onConfirm }: ProlongModa
         </div>
     );
 }
-

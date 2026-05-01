@@ -4,6 +4,8 @@ import { cn } from '../lib/utils';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { useGlobalRentals, useGlobalProducts, useGlobalCustomers } from '../data/api';
+import { usePeriod } from '../contexts/PeriodContext';
+import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 
 interface SidebarProps {
     isOpen: boolean;
@@ -14,8 +16,14 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
     const location = useLocation();
     const navigate = useNavigate();
     const { signOut } = useAuth();
+    const { selectedMonth, selectedYear, selectedDay, setPeriod } = usePeriod();
 
-    const { refreshRentals, loading: loadingRentals } = useGlobalRentals();
+    const months = [
+        'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+        'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ];
+
+    const { rentals, refreshRentals, loading: loadingRentals } = useGlobalRentals();
     const { refreshProducts, loading: loadingProducts } = useGlobalProducts();
     const { refreshCustomers, loading: loadingCustomers } = useGlobalCustomers();
     const isLoading = loadingRentals || loadingProducts || loadingCustomers;
@@ -77,6 +85,108 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
                         </Link>
                     );
                 })}
+
+                {/* Calendário Mensal Interativo */}
+                <div className="mt-6 px-2">
+                    <div className="flex items-center justify-between mb-3 px-1">
+                        <div className="flex items-center gap-2">
+                            <Calendar className="w-4 h-4 text-amber-500" />
+                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Agenda</span>
+                        </div>
+                        {selectedDay && (
+                            <button 
+                                onClick={() => setPeriod(selectedMonth, selectedYear, null)}
+                                className="text-[9px] font-bold text-amber-500 hover:text-amber-400 uppercase tracking-tighter"
+                            >
+                                Ver Mês Todo
+                            </button>
+                        )}
+                    </div>
+                    
+                    <div className="bg-slate-900/40 border border-slate-800/60 rounded-xl p-3 shadow-inner">
+                        {/* Header do Calendário */}
+                        <div className="flex items-center justify-between mb-4">
+                            <button 
+                                onClick={() => {
+                                    if (selectedMonth === 0) setPeriod(11, selectedYear - 1);
+                                    else setPeriod(selectedMonth - 1, selectedYear);
+                                }}
+                                className="p-1 hover:bg-slate-800 rounded transition-colors text-slate-500 hover:text-amber-500"
+                            >
+                                <ChevronLeft className="w-3.5 h-3.5" />
+                            </button>
+                            
+                            <div className="text-[11px] font-black text-slate-200 uppercase tracking-wider">
+                                {months[selectedMonth]} <span className="text-slate-500 ml-0.5">{selectedYear}</span>
+                            </div>
+
+                            <button 
+                                onClick={() => {
+                                    if (selectedMonth === 11) setPeriod(0, selectedYear + 1);
+                                    else setPeriod(selectedMonth + 1, selectedYear);
+                                }}
+                                className="p-1 hover:bg-slate-800 rounded transition-colors text-slate-500 hover:text-amber-500"
+                            >
+                                <ChevronRight className="w-3.5 h-3.5" />
+                            </button>
+                        </div>
+
+                        {/* Grade de Dias */}
+                        <div className="grid grid-cols-7 gap-y-1 text-center">
+                            {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => (
+                                <div key={i} className="text-[9px] font-bold text-slate-600 mb-1">{d}</div>
+                            ))}
+                            
+                            {(() => {
+                                const firstDay = new Date(selectedYear, selectedMonth, 1).getDay();
+                                const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
+                                const days = [];
+                                
+                                // Dias vazios do início
+                                for (let i = 0; i < firstDay; i++) {
+                                    days.push(<div key={`empty-${i}`} />);
+                                }
+                                
+                                // Dias do mês
+                                for (let d = 1; d <= daysInMonth; d++) {
+                                    const dateStr = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                                    
+                                    // Verificar atividade (Recolha ou Entrega)
+                                    const hasActivity = rentals?.some(r => 
+                                        r.pickup_date.startsWith(dateStr) || r.return_date.startsWith(dateStr)
+                                    );
+
+                                    const isSelected = selectedDay === d;
+                                    const isToday = new Date().toISOString().startsWith(dateStr);
+
+                                    days.push(
+                                        <button
+                                            key={d}
+                                            onClick={() => setPeriod(selectedMonth, selectedYear, isSelected ? null : d)}
+                                            className={cn(
+                                                "relative h-7 w-full flex items-center justify-center text-[10px] font-bold rounded-lg transition-all group",
+                                                isSelected 
+                                                    ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20" 
+                                                    : isToday 
+                                                        ? "text-amber-500 border border-amber-500/30" 
+                                                        : "text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+                                            )}
+                                        >
+                                            {d}
+                                            {hasActivity && !isSelected && (
+                                                <span className={cn(
+                                                    "absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full",
+                                                    isToday ? "bg-amber-500" : "bg-emerald-500"
+                                                )} />
+                                            )}
+                                        </button>
+                                    );
+                                }
+                                return days;
+                            })()}
+                        </div>
+                    </div>
+                </div>
             </nav>
 
             <div className="p-4 border-t border-slate-800">

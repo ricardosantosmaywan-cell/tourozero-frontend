@@ -5,12 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '../components/ui/Table';
-import { Euro, Users, Package, Clock, AlertCircle, Plus, CheckCircle2, Search, Edit2, Eye, AlertTriangle, FileText, Loader2 } from 'lucide-react';
+import { Euro, Users, Package, Clock, AlertCircle, Plus, CheckCircle2, Search, Edit2, Eye, AlertTriangle, FileText, Loader2, RotateCcw, Calendar } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { BookingModal } from '../components/BookingModal';
 import { ClientModal } from '../components/ClientModal';
 import { ViewRentalModal } from '../components/ViewRentalModal';
 import { useGlobalRentals, useGlobalProducts } from '../data/api';
+import { usePeriod } from '../contexts/PeriodContext';
 import { printRentalContractHTML } from '../lib/htmlContractGenerator';
 
 export default function Dashboard() {
@@ -19,17 +20,23 @@ export default function Dashboard() {
 
     const { rentals, loading: loadingRentals, updateRental, deleteRental, refreshRentals } = useGlobalRentals();
     const { products, loading: loadingProducts, refreshProducts } = useGlobalProducts();
+    const { selectedMonth, selectedYear, selectedDay, startDate, isSpecificDay } = usePeriod();
     const isLoading = loadingRentals || loadingProducts;
 
 
     useEffect(() => {
         refreshRentals();
         refreshProducts();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // Tabela State
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState<'all' | 'ontime' | 'late'>('all');
+    
+    // Filtros de Histórico
+    const [historyStartDate, setHistoryStartDate] = useState('');
+    const [historyEndDate, setHistoryEndDate] = useState('');
 
     // Booking Modal State
     const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
@@ -54,22 +61,25 @@ export default function Dashboard() {
 
     // Grafico State
     const chartData = useMemo(() => {
-        const currentMonthPrefix = new Date().toISOString().substring(0, 7);
-        const currentMonthName = new Date().toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
+        const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+        
+        // Período Atual
+        const currentPrefix = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
+        const currentName = `${months[selectedMonth]} ${String(selectedYear).substring(2)}`;
 
-        const lastMonthDate = new Date();
-        lastMonthDate.setMonth(lastMonthDate.getMonth() - 1);
-        const lastMonthPrefix = lastMonthDate.toISOString().substring(0, 7);
-        const lastMonthName = lastMonthDate.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
+        // Período Anterior
+        const prevDate = new Date(selectedYear, selectedMonth - 1, 1);
+        const prevPrefix = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
+        const prevName = `${months[prevDate.getMonth()]} ${String(prevDate.getFullYear()).substring(2)}`;
 
-        const lastRev = rentals.filter(r => r.pickup_date.startsWith(lastMonthPrefix) && r.payment_status === 'paid').reduce((acc, curr) => acc + (curr.materials_value || 0), 0);
-        const currRev = rentals.filter(r => r.pickup_date.startsWith(currentMonthPrefix) && r.payment_status === 'paid').reduce((acc, curr) => acc + (curr.materials_value || 0), 0);
+        const lastRev = rentals.filter(r => r.pickup_date.startsWith(prevPrefix) && r.payment_status === 'paid').reduce((acc, curr) => acc + (curr.materials_value || 0), 0);
+        const currRev = rentals.filter(r => r.pickup_date.startsWith(currentPrefix) && r.payment_status === 'paid').reduce((acc, curr) => acc + (curr.materials_value || 0), 0);
 
         return [
-            { name: lastMonthName, Faturamento: lastRev },
-            { name: currentMonthName, Faturamento: currRev }
+            { name: prevName, Faturamento: lastRev },
+            { name: currentName, Faturamento: currRev }
         ];
-    }, [rentals]);
+    }, [rentals, selectedMonth, selectedYear]);
 
     function isLate(returnDate: string) {
         const end = new Date(returnDate);
@@ -78,28 +88,65 @@ export default function Dashboard() {
     }
     const activeRentals = (rentals || []).filter(r => r.status === 'active');
     
-    // Verificação rigorosa para evitar crash no array
-    const completedRentals = (rentals || [])
-        .filter(r => {
+    // Filtragem do Histórico de Concluídos
+    const filteredCompletedRentals = useMemo(() => {
+        let list = (rentals || []).filter(r => {
             const statusStr = typeof r.status === 'string' ? r.status.toLowerCase() : '';
             return ['completed', 'finalizado', 'concluido', 'concluído'].includes(statusStr);
-        })
-        .slice(-10)
-        .reverse();
+        });
+
+        // Filtro por Nome (Busca Global)
+        if (searchTerm) {
+            list = list.filter(r => 
+                r.customers?.full_name?.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+        }
+
+        // Filtro por Data
+        if (historyStartDate) {
+            const start = new Date(historyStartDate);
+            start.setHours(0, 0, 0, 0);
+            list = list.filter(r => new Date(r.return_date) >= start);
+        }
+        if (historyEndDate) {
+            const end = new Date(historyEndDate);
+            end.setHours(23, 59, 59, 999);
+            list = list.filter(r => new Date(r.return_date) <= end);
+        }
+
+        // Ordenar por data de retorno decrescente
+        list.sort((a, b) => new Date(b.return_date).getTime() - new Date(a.return_date).getTime());
+
+        // Se não houver filtros, mostrar apenas os últimos 10 (comportamento original)
+        if (!historyStartDate && !historyEndDate && !searchTerm) {
+            return list.slice(0, 10);
+        }
+
+        return list;
+    }, [rentals, searchTerm, historyStartDate, historyEndDate]);
 
 
 
 
-    // Filtragens Dinâmicas da Tabela
-    const displayRentals = activeRentals.filter(r => {
-        const matchName = r.customers?.full_name?.toLowerCase().includes(searchTerm.toLowerCase());
-        const late = isLate(r.return_date);
-        let matchStatus = true;
-        if (filterStatus === 'ontime') matchStatus = !late;
-        if (filterStatus === 'late') matchStatus = late;
+    // Filtragens Dinâmicas da Tabela (Alugueres Ativos)
+    const displayRentals = useMemo(() => {
+        return activeRentals.filter(r => {
+            const matchName = r.customers?.full_name?.toLowerCase().includes(searchTerm.toLowerCase());
+            const late = isLate(r.return_date);
+            let matchStatus = true;
+            if (filterStatus === 'ontime') matchStatus = !late;
+            if (filterStatus === 'late') matchStatus = late;
 
-        return matchName && matchStatus;
-    });
+            // Se houver um dia específico selecionado, filtramos por recolha ou entrega nesse dia
+            if (isSpecificDay) {
+                const pickup = r.pickup_date.startsWith(startDate);
+                const returns = r.return_date.startsWith(startDate);
+                return (pickup || returns) && matchName && matchStatus;
+            }
+
+            return matchName && matchStatus;
+        });
+    }, [activeRentals, searchTerm, filterStatus, isSpecificDay, startDate]);
 
     // Ação: Finalizar Aluguel globalmente
     const finalizeRental = (id: string) => {
@@ -107,7 +154,7 @@ export default function Dashboard() {
     };
 
     // Estatísticas Dinâmicas para os Cards
-    const currentMonthPrefix = new Date().toISOString().substring(0, 7);
+    const currentMonthPrefix = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
     const monthlyRevenue = rentals.filter(r => r.pickup_date.startsWith(currentMonthPrefix) && r.payment_status === 'paid').reduce((acc, curr) => acc + (curr.materials_value || 0), 0);
     const pendingRevenue = rentals.filter(r => r.pickup_date.startsWith(currentMonthPrefix) && r.payment_status === 'pending').reduce((acc, curr) => acc + (curr.materials_value || 0), 0);
 
@@ -124,21 +171,34 @@ export default function Dashboard() {
         }
     };
 
-    const now = new Date();
-    const currentMonthStr = now.toLocaleDateString('pt-BR', { month: 'long' });
-    const dynamicFaturamentoTitle = `Faturamento ${currentMonthStr.charAt(0).toUpperCase() + currentMonthStr.slice(1)}/${now.getFullYear()}`;
+    const monthsFull = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+    const dynamicFaturamentoTitle = `Faturamento ${monthsFull[selectedMonth]}/${selectedYear}`;
 
     useEffect(() => {
         const timer = setInterval(() => setCurrentTime(new Date()), 1000);
         return () => clearInterval(timer);
     }, []);
 
+    const clearHistoryFilters = () => {
+        setHistoryStartDate('');
+        setHistoryEndDate('');
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-slate-50">Painel de Controlo</h1>
-                    <p className="text-slate-400 mt-1">Bem-vindo(a) ao Tourozero</p>
+                    <h1 className="text-3xl font-bold tracking-tight text-slate-50 flex items-center gap-3">
+                        Painel de Controlo
+                        {isSpecificDay && (
+                            <span className="text-xs bg-amber-500 text-slate-950 px-2 py-1 rounded-full font-black uppercase tracking-tighter animate-pulse">
+                                Vista Diária: {selectedDay}/{selectedMonth + 1}
+                            </span>
+                        )}
+                    </h1>
+                    <p className="text-slate-400 mt-1">
+                        {isSpecificDay ? `Mostrando atividade para o dia selecionado` : `Bem-vindo(a) ao Tourozero`}
+                    </p>
                 </div>
 
                 <div className="flex items-center gap-3 bg-slate-900 border border-slate-800 px-4 py-2 rounded-lg text-amber-500 font-medium whitespace-nowrap">
@@ -293,7 +353,16 @@ export default function Dashboard() {
             <div className="space-y-4">
                     {/* Controles de Tabela */}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <h2 className="text-xl font-semibold tracking-tight text-slate-50">Alugueres Ativos</h2>
+                        <div className="flex items-center gap-3">
+                            <h2 className="text-xl font-semibold tracking-tight text-slate-50">
+                                {isSpecificDay ? 'Movimentações do Dia' : 'Alugueres Ativos'}
+                            </h2>
+                            {isSpecificDay && (
+                                <span className="text-[10px] text-slate-500 font-bold uppercase border border-slate-800 px-2 py-0.5 rounded">
+                                    {displayRentals.length} resultados
+                                </span>
+                            )}
+                        </div>
 
                         <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto flex-1 justify-end">
                             <div className="relative w-full sm:max-w-xs xl:max-w-sm shrink-1">
@@ -350,10 +419,16 @@ export default function Dashboard() {
                                 ) : (
                                     displayRentals.map((rental) => {
                                         const late = isLate(rental.return_date);
+                                        const isPending = rental.payment_status === 'pending';
                                         return (
-                                            <TableRow key={rental.id}>
+                                            <TableRow key={rental.id} className={isPending ? 'opacity-50 grayscale-[0.2]' : ''}>
                                                 <TableCell className="font-medium">
                                                     <div>{rental.customers?.full_name}</div>
+                                                    {isPending && (
+                                                        <div className="text-[9px] text-amber-500 font-black uppercase tracking-tighter mt-1 flex items-center gap-1">
+                                                            <Clock className="w-2 h-2" /> Não Pago (Pendente)
+                                                        </div>
+                                                    )}
                                                     <div className="flex md:hidden flex-wrap gap-1 mt-1.5">
                                                         {rental.items && rental.items.length > 0 ? (
                                                             rental.items.map((it: any, idx: number) => (
@@ -472,10 +547,13 @@ export default function Dashboard() {
                             </TableBody>
                             <TableFooter>
                                 <TableRow className="bg-slate-900 border-t border-slate-800">
-                                    <TableCell className="md:hidden text-right font-medium text-slate-400" colSpan={2}>Total Filtrado:</TableCell>
-                                    <TableCell className="hidden md:table-cell text-right font-medium text-slate-400" colSpan={4}>Total Filtrado:</TableCell>
+                                    <TableCell className="md:hidden text-right font-medium text-slate-400" colSpan={2}>Total Filtrado (Pago):</TableCell>
+                                    <TableCell className="hidden md:table-cell text-right font-medium text-slate-400" colSpan={4}>Total Filtrado (Pago):</TableCell>
                                     <TableCell className="font-bold text-emerald-400">
-                                        {displayRentals.reduce((acc, r) => acc + (Number(r.materials_value || 0)), 0).toFixed(2)} €
+                                        {displayRentals
+                                            .filter(r => r.payment_status === 'paid')
+                                            .reduce((acc, r) => acc + (Number(r.materials_value || 0)), 0)
+                                            .toFixed(2)} €
                                     </TableCell>
                                     <TableCell colSpan={2}></TableCell>
                                 </TableRow>
@@ -486,8 +564,43 @@ export default function Dashboard() {
 
             {/* Histórico de Alugueres */}
             <div className="space-y-4 pt-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                     <h2 className="text-xl font-semibold tracking-tight text-slate-400">Histórico de Alugueres (Concluídos)</h2>
+                    
+                    <div className="flex flex-col sm:flex-row items-end gap-3 bg-slate-900/50 p-3 rounded-lg border border-slate-800/50">
+                        <div className="flex flex-col gap-1 w-full sm:w-40">
+                            <label className="text-[10px] font-uppercase tracking-wider text-slate-500 ml-1 flex items-center gap-1">
+                                <Calendar className="w-3 h-3" /> DE:
+                            </label>
+                            <Input 
+                                type="date" 
+                                className="h-9 text-xs bg-slate-950 border-slate-800"
+                                value={historyStartDate}
+                                onChange={(e) => setHistoryStartDate(e.target.value)}
+                            />
+                        </div>
+                        <div className="flex flex-col gap-1 w-full sm:w-40">
+                            <label className="text-[10px] font-uppercase tracking-wider text-slate-500 ml-1 flex items-center gap-1">
+                                <Calendar className="w-3 h-3" /> ATÉ:
+                            </label>
+                            <Input 
+                                type="date" 
+                                className="h-9 text-xs bg-slate-950 border-slate-800"
+                                value={historyEndDate}
+                                onChange={(e) => setHistoryEndDate(e.target.value)}
+                            />
+                        </div>
+                        <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-9 px-3 text-slate-400 hover:text-amber-500 hover:bg-amber-500/5 transition-all border border-transparent hover:border-amber-500/20"
+                            onClick={clearHistoryFilters}
+                            disabled={!historyStartDate && !historyEndDate}
+                        >
+                            <RotateCcw className={`w-3.5 h-3.5 mr-2 ${(!historyStartDate && !historyEndDate) ? '' : 'animate-spin-once'}`} />
+                            Limpar
+                        </Button>
+                    </div>
                 </div>
                 <div className="rounded-lg border border-slate-800/80 bg-slate-900/30 overflow-x-auto opacity-80">
                     <Table>
@@ -502,15 +615,17 @@ export default function Dashboard() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {(completedRentals || []).length === 0 ? (
+                            {filteredCompletedRentals.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="text-center py-6 text-slate-500 font-medium italic">
-                                        Nenhum aluguer finalizado este mês.
+                                    <TableCell colSpan={6} className="text-center py-8 text-slate-500 font-medium italic">
+                                        {(historyStartDate || historyEndDate || searchTerm) 
+                                            ? 'Nenhum aluguer concluído encontrado para este período/busca.' 
+                                            : 'Nenhum aluguer finalizado encontrado.'}
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                completedRentals.map((rental) => (
-                                    <TableRow key={rental?.id || Math.random()} className="border-b border-slate-800/50 hover:bg-slate-800/30">
+                                filteredCompletedRentals.map((rental, index) => (
+                                    <TableRow key={rental?.id || `rental-${index}`} className="border-b border-slate-800/50 hover:bg-slate-800/30">
                                         <TableCell className="font-medium">
                                             <div className="text-slate-400">{rental?.customers?.full_name || 'Desconhecido'}</div>
                                             <div className="flex md:hidden flex-wrap gap-1 mt-1.5 opacity-70">

@@ -1,16 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { Search, ChevronLeft, ChevronRight, Eye, Edit2, Trash2, FileText, CircleDollarSign, Clock } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
 import { useGlobalRentals } from '../data/api';
 import { printRentalContractHTML } from '../lib/htmlContractGenerator';
+import { usePeriod } from '../contexts/PeriodContext';
 import { BookingModal } from '../components/BookingModal';
 import { ViewRentalModal } from '../components/ViewRentalModal';
 
 export default function Rentals() {
     // Integração Directa à Base Central Mock
     const { rentals, deleteRental, refreshRentals, updatePaymentStatus } = useGlobalRentals();
+    const { startDate, endDate } = usePeriod();
 
     const handleTogglePayment = async (id: string, currentStatus: string) => {
         const title = currentStatus === 'paid' ? 'Desmarcar pagamento deste aluguer?' : 'Confirmar pagamento deste aluguer?';
@@ -33,19 +35,32 @@ export default function Rentals() {
     const [viewRental, setViewRental] = useState<any>(null);
 
     // Search & Paginação Global na Table
-    const filteredRentals = rentals.filter(r =>
-        r.customers?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        r.id.includes(searchTerm) // Permitir busca por ID de contrato se necessário
-    );
+    const filteredRentals = useMemo(() => {
+        return rentals.filter(r => {
+            const matchesSearch = r.customers?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                 r.id.includes(searchTerm);
+            
+            // Filtro de Data Global
+            const pickupDate = new Date(r.pickup_date);
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            end.setHours(23, 59, 59, 999);
+            
+            const matchesDate = pickupDate >= start && pickupDate <= end;
+            
+            return matchesSearch && matchesDate;
+        });
+    }, [rentals, searchTerm, startDate, endDate]);
 
     const totalPages = Math.ceil(filteredRentals.length / ITEMS_PER_PAGE);
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
     const paginatedRentals = filteredRentals.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
-    // Reset da Página a cada nova Pesquisa
-    useEffect(() => {
+    // Pesquisa com reset de página integrado
+    const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setSearchTerm(e.target.value);
         setCurrentPage(1);
-    }, [searchTerm]);
+    };
 
     function isLate(returnDate: string, status: string) {
         if (status === 'completed') return false;
@@ -80,7 +95,7 @@ export default function Rentals() {
                         placeholder="Pesquisar por cliente..."
                         className="pl-9"
                         value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onChange={handleSearch}
                     />
                 </div>
             </div>

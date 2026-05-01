@@ -1,73 +1,85 @@
-# React + TypeScript + Vite
+# Tourozero 🚧
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+![React](https://img.shields.io/badge/React-19.2.0-blue?style=for-the-badge&logo=react)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.9.3-blue?style=for-the-badge&logo=typescript)
+![Vite](https://img.shields.io/badge/Vite-7.3.1-purple?style=for-the-badge&logo=vite)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind-4.2.1-38B2AC?style=for-the-badge&logo=tailwind-css)
+![Supabase](https://img.shields.io/badge/Supabase-2.98.0-3ECF8E?style=for-the-badge&logo=supabase)
+![Vitest](https://img.shields.io/badge/Vitest-4.1.5-yellow?style=for-the-badge&logo=vitest)
 
-Currently, two official plugins are available:
+**Tourozero** é um SaaS moderno focado na gestão de alugueres de equipamentos e contabilidade financeira. Criado para otimizar fluxos de trabalho logísticos, inclui a gestão de inventário, controlo de clientes, geração de contratos automáticos (A4 para impressão) e painéis de contabilidade com cálculos complexos de partilha de lucros.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 🚀 Funcionalidades Principais
+- 📊 **Dashboard Dinâmico:** Visão global sobre ganhos, equipamentos ativos e métricas através de gráficos (Recharts).
+- 👥 **Gestão de Clientes & CRM:** Histórico de contratos (LTV), contactos e anexos de documentos.
+- 📦 **Gestão de Inventário:** Controlo de stock e visualização do estado em tempo real.
+- 🗂️ **Alugueres e Contratos:** Geração automatizada de contratos e recibos em HTML/A4, com lógica robusta para prolongamento e cálculo de cauções e IVA.
+- 💰 **Contabilidade:** Partilha e acerto automático de valores financeiros (Ex: 80/20 base + 50/50 transporte).
 
-## React Compiler
+## 💻 Tecnologias
+- **Frontend:** React 19, Vite, TypeScript
+- **Estilização:** Tailwind CSS v4, Lucide React
+- **Base de Dados & Auth:** Supabase
+- **Testes Unitários:** Vitest
+- **Gráficos & PDF:** Recharts, JSPDF
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 🛠️ Instalação e Execução
 
-## Expanding the ESLint configuration
+1. **Clone o repositório:**
+   ```bash
+   git clone https://github.com/seu-usuario/tourozero.git
+   cd tourozero
+   ```
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+2. **Instale as dependências:**
+   ```bash
+   npm install
+   ```
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+3. **Configure as Variáveis de Ambiente:**
+   Crie um ficheiro `.env` na raiz do projeto e preencha com as credenciais do Supabase:
+   ```env
+   VITE_SUPABASE_URL=sua_url_do_supabase
+   VITE_SUPABASE_ANON_KEY=sua_anon_key_do_supabase
+   ```
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+4. **Inicie o servidor de desenvolvimento:**
+   ```bash
+   npm run dev
+   ```
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+5. **Acesso:**
+   Aceda a `http://localhost:5173` no seu navegador.
+
+## 🧪 Testes
+Para correr a suite de testes unitários (Vitest) e garantir a fiabilidade da lógica:
+```bash
+npm run test
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## 📂 Estrutura do Projeto
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```text
+tourozero/
+├── public/                 # Recursos estáticos
+├── src/
+│   ├── __tests__/          # Suítes de testes globais
+│   ├── assets/             # Ícones, imagens e SVGs
+│   ├── components/         # Componentes reutilizáveis (UI, Modais, etc.)
+│   ├── contexts/           # Context API (ex: PeriodContext)
+│   ├── data/               # Funções de API e mocks (Supabase calls)
+│   ├── lib/                # Bibliotecas utilitárias e geradores HTML/PDF
+│   ├── pages/              # Páginas da Aplicação (Dashboard, Rentals, etc.)
+│   ├── utils/              # Funções utilitárias puras (Cálculos Financeiros)
+│   ├── App.tsx             # Rotas e layout base
+│   └── main.tsx            # Ponto de entrada (Entry point)
+├── .env                    # Variáveis de ambiente (não incluído no git)
+├── package.json            # Dependências e scripts
+└── vite.config.ts          # Configuração do Vite
 ```
+
+## ☁️ Deploy em Produção
+O projeto está configurado para fácil *deploy* em plataformas como a **Vercel**:
+1. Conecte o repositório no painel da Vercel.
+2. Defina as Environment Variables (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`).
+3. O comando de Build será gerado automaticamente (`npm run build`) com a pasta de destino `dist`.

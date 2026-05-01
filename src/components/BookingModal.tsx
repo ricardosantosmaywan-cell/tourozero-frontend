@@ -37,11 +37,36 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
     const [paymentStatus, setPaymentStatus] = useState<'pending' | 'paid'>('pending');
     const [deliveryAddress, setDeliveryAddress] = useState('');
     const [notes, setNotes] = useState('');
+    const [receivedBy, setReceivedBy] = useState('Ricardo');
     const [extensionReason, setExtensionReason] = useState('');
     const [showSuccessToast, setShowSuccessToast] = useState(false);
 
     const [showCustomerForm, setShowCustomerForm] = useState(false);
     const [newCustomerData, setNewCustomerData] = useState<{ full_name: string, phone: string, address: string, tax_id: string, email: string, document_id: string }>({ full_name: '', phone: '', address: '', tax_id: '', email: '', document_id: '' });
+
+    function resetState() {
+        setNifSearch('');
+        setSelectedCustomer(null);
+        setPickupDate('');
+        setReturnDate('');
+        setSelectedProducts([]);
+        setSelectedProductId('');
+        setManualTotal(0);
+        setTransportFee(0);
+        setDepositFee(0);
+        setIvaMaterials(0);
+        setIvaTransport(0);
+        setPaymentStatus('pending');
+        setShowCustomerForm(false);
+        setNewCustomerData({ full_name: '', phone: '', address: '', tax_id: '', email: '', document_id: '' });
+        setFormError('');
+        setDurationValue(1);
+        setDurationUnit('semana');
+        setDeliveryAddress('');
+        setNotes('');
+        setReceivedBy('Ricardo');
+        setExtensionReason('');
+    }
 
     useEffect(() => {
         if (!isOpen) return;
@@ -56,6 +81,7 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
                 setDurationUnit(rentalToEdit.rental_duration_type || 'semana');
                 setDeliveryAddress(rentalToEdit.delivery_address || '');
                 setPaymentStatus(rentalToEdit.payment_status || 'pending');
+                setReceivedBy(rentalToEdit.received_by || 'Ricardo');
                 setNotes(rentalToEdit.observacoes || '');
                 
                 // Preencher valores e itens iniciais vindos da prop
@@ -86,7 +112,7 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
                 try {
                     const { data: freshRental } = await supabase
                         .from('rentals')
-                        .select('transport_value, deposit_value, iva_materials, iva_transport, total_amount, observacoes')
+                        .select('transport_value, deposit_value, iva_materials, iva_transport, total_amount, observacoes, received_by')
                         .eq('id', rentalToEdit.id)
                         .single();
 
@@ -106,6 +132,7 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
                         setIvaMaterials(subRef > 0 ? Math.round((ivaMatsEuro / subRef) * 100) : 0);
                         setIvaTransport(transport > 0 ? Math.round((ivaTranspEuro / transport) * 100) : 0);
                         setNotes(freshRental.observacoes || '');
+                        setReceivedBy(freshRental.received_by || 'Ricardo');
                     }
 
                     const { data: freshItems } = await supabase
@@ -138,29 +165,6 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
         loadFullRentalData();
     }, [isOpen, rentalToEdit]);
 
-    function resetState() {
-        setNifSearch('');
-        setSelectedCustomer(null);
-        setPickupDate('');
-        setReturnDate('');
-        setSelectedProducts([]);
-        setSelectedProductId('');
-        setManualTotal(0);
-        setTransportFee(0);
-        setDepositFee(0);
-        setIvaMaterials(0);
-        setIvaTransport(0);
-        setPaymentStatus('pending');
-        setShowCustomerForm(false);
-        setNewCustomerData({ full_name: '', phone: '', address: '', tax_id: '', email: '', document_id: '' });
-        setFormError('');
-        setDurationValue(1);
-        setDurationUnit('semana');
-        setDeliveryAddress('');
-        setNotes('');
-        setExtensionReason('');
-    }
-
     // Cálculo automático da data de entrega
     useEffect(() => {
         if (!pickupDate || !durationValue) return;
@@ -175,6 +179,7 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
             resultDate.setDate(start.getDate() + durationValue);
         }
 
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setReturnDate(resultDate.toISOString().split('T')[0]);
     }, [pickupDate, durationValue, durationUnit]);
 
@@ -202,7 +207,7 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
         const sel = document.getElementById('productSelect') as HTMLSelectElement;
         const qty = document.getElementById('productQty') as HTMLInputElement;
 
-        let finalProducts = [...selectedProducts];
+        const finalProducts = [...selectedProducts];
 
         if (sel && sel.value) {
             const implicitProd = products.find(p => p.id === sel.value);
@@ -284,6 +289,7 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
             iva_transport: calcIvaTransp,
             observacoes: notes,
             payment_status: paymentStatus,
+            received_by: receivedBy,
             status: rentalToEdit ? rentalToEdit.status : 'active',
             itemsCount: finalProducts.reduce((sum, sp) => sum + sp.quantity, 0),
             items: finalProducts.map(sp => ({
@@ -296,7 +302,7 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
         };
 
         if (rentalToEdit) {
-            let updatedExtensions = rentalToEdit.extensions_history ? [...rentalToEdit.extensions_history] : [];
+            const updatedExtensions = rentalToEdit.extensions_history ? [...rentalToEdit.extensions_history] : [];
             const oldValue = Number(rentalToEdit.total_amount || 0);
             const newValue = totalPayload;
             const oldDate = rentalToEdit.return_date;
@@ -580,16 +586,29 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
                         </div>
 
                         <div className="mt-3 pt-3 border-t border-slate-800/60 flex justify-between items-center">
-                             <div className="flex flex-col">
-                                <label className="block text-[8px] font-bold text-slate-500 uppercase mb-1">Status Pagamento</label>
-                                <select
-                                    value={paymentStatus}
-                                    onChange={(e) => setPaymentStatus(e.target.value as any)}
-                                    className="h-7 px-1.5 bg-slate-900 border border-slate-700 text-[10px] text-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-500"
-                                >
-                                    <option value="pending">Pendente</option>
-                                    <option value="paid">Pago</option>
-                                </select>
+                             <div className="flex gap-3">
+                                <div className="flex flex-col">
+                                    <label className="block text-[8px] font-bold text-slate-500 uppercase mb-1">Status</label>
+                                    <select
+                                        value={paymentStatus}
+                                        onChange={(e) => setPaymentStatus(e.target.value as any)}
+                                        className="h-7 px-1.5 bg-slate-900 border border-slate-700 text-[10px] text-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-500"
+                                    >
+                                        <option value="pending">Pendente</option>
+                                        <option value="paid">Pago</option>
+                                    </select>
+                                </div>
+                                <div className="flex flex-col">
+                                    <label className="block text-[8px] font-bold text-slate-500 uppercase mb-1">Recebido por</label>
+                                    <select
+                                        value={receivedBy}
+                                        onChange={(e) => setReceivedBy(e.target.value)}
+                                        className="h-7 px-1.5 bg-slate-900 border border-slate-700 text-[10px] text-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                    >
+                                        <option value="Ricardo">Ricardo</option>
+                                        <option value="Gabriel">Gabriel</option>
+                                    </select>
+                                </div>
                             </div>
                             <div className="flex flex-col items-end">
                                 <span className="text-[9px] font-bold text-slate-500 uppercase">Total a Pagar</span>
