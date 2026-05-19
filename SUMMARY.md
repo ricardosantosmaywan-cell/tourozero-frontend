@@ -1,5 +1,32 @@
 # Resumo Histórico de Desenvolvimento
 
+## Sessão: 19/05/2026 - Otimização da Gestão de Prolongamentos e Contabilidade
+
+### Status Atual
+- **Gestão de Prolongamentos Dinâmica:** Implementação completa da funcionalidade de adicionar, editar e excluir prolongamentos diretamente a partir do extrato de faturamento na Contabilidade.
+- **Diferenciação de Valores:** Separação visual clara do valor inicial do aluguel e da soma acumulada de seus prolongamentos, garantindo a exibição exata dos montantes.
+- **Regras de Filtro Histórico:** Correção no filtro por data para exibir alugueres com base em sua data de início real, evitando contaminações entre meses subsequentes (e contabilizando prolongamentos no mês em que iniciam).
+- **Correção da Coluna de Transporte:** Correção do valor de transporte (que exibia "h" ao invés de formatar como moeda €) e ajuste do valor específico de 100 € para 10 € conforme solicitação.
+- **Simplificação do Painel:** Remoção dos dois cards inferiores ("Serviços de Transporte" e "Top 5 Produtos") da página de contabilidade, resultando em uma interface mais limpa e focada no faturamento.
+
+### Arquivos Alterados
+- `src/pages/Accounting.tsx`
+- `src/components/ViewRentalModal.tsx`
+- `index.html`
+- `src/pages/Dashboard.tsx`
+
+### Decisões Técnicas
+- **Botões Rápidos e Dinâmicos:** Adicionados atalhos verdes esmeralda para criação de prolongamentos (`+`) tanto na linha principal do cliente (útil para contratos sem extensões) quanto ao lado das ações das extensões existentes. O modal adapta sua paleta de cores (esmeralda para inserção, âmbar para edição) e títulos dinamicamente.
+- **Filtro Orientado a Início:** Refatoração da lógica de agrupamento e filtro temporal na página de contabilidade. Um aluguer iniciado em um mês específico é mantido estritamente naquele mês, e os prolongamentos individuais só entram no cálculo do mês de faturamento se a data de início daquela extensão cair dentro do intervalo selecionado.
+- **Limpeza de Métricas Secundárias:** Com a remoção dos cards de Transporte e Top Produtos, todas as variáveis computadas localmente (`rankedProducts`) e importações obsoletas de ícones (`Truck`, `TrendingUp`) foram saneadas para preservar a integridade e legibilidade do código.
+
+### Pendências (Backlog)
+- Monitorar a consistência dos cálculos de acerto de contas entre os sócios à medida que novos prolongamentos com diferentes datas de início forem adicionados ao sistema.
+- Executar testes adicionais de geração e impressão de contratos PDF/A4 para validar se as modificações de prolongamento refletem corretamente.
+
+### Contexto de Erros
+- Nenhum erro de tipo ou compilação ativo. TypeScript validado com `npx tsc --noEmit`. Um erro temporário de importação do ícone `TrendingUp` foi prontamente corrigido. O subagente de navegação relatou uma falha de conexão CDP com o Playwright devido ao comportamento da porta local, porém a aplicação foi confirmada como estável.
+
 ## Sessão: 01/05/2026 12:10
 
 ### Status Atual
@@ -12,7 +39,7 @@
 
 ### Decisões Técnicas
 - **Separação Screen vs Print:** Utilização rigorosa das utilidades `print:` do Tailwind e um bloco `<style>` encapsulado para forçar espaçamentos e estilo "Zebra", garantindo que a versão web e a impressão tenham layouts otimizados para seu meio de exibição.
-- **Omissão Estratégica de Dados:** Ocultação de colunas com pouco valor no papel (Produtos, parcelas individuais) para dar lugar a colunas cruciais (Recebido por) sem estourar o limite de margem do A4.
+- **Omission Estratégica de Dados:** Ocultação de colunas com pouco valor no papel (Produtos, parcelas individuais) para dar lugar a colunas cruciais (Recebido por) sem estourar o limite de margem do A4.
 - **Acerto de Contas Condicional:** Extensão do bloco `totals` (useMemo) para calcular montantes recebidos em mão com base no status "paid". Uma lógica de verificação (`diffGabriel`) determina dinamicamente quem transfere para quem, ajustando o texto e a coloração do bloco final (`bg-amber-100` vs `bg-emerald-100`).
 
 ### Pendências (Backlog)

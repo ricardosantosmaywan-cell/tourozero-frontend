@@ -42,6 +42,7 @@ export function ProlongModal({ isOpen, onClose, rental, onConfirm }: ProlongModa
             setTransportValue(rental.transport_value || 0);
             setReceivedBy(rental.received_by || 'Ricardo');
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [rental, isOpen]);
 
     // Cálculo de Dias Adicionais

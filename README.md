@@ -10,11 +10,11 @@
 **Tourozero** é um SaaS moderno focado na gestão de alugueres de equipamentos e contabilidade financeira. Criado para otimizar fluxos de trabalho logísticos, inclui a gestão de inventário, controlo de clientes, geração de contratos automáticos (A4 para impressão) e painéis de contabilidade com cálculos complexos de partilha de lucros.
 
 ## 🚀 Funcionalidades Principais
-- 📊 **Dashboard Dinâmico:** Visão global sobre ganhos, equipamentos ativos e métricas através de gráficos (Recharts).
+- 📊 **Dashboard Dinâmico:** Visão global sobre ganhos, equipamentos ativos e métricas através de gráficos interativos.
 - 👥 **Gestão de Clientes & CRM:** Histórico de contratos (LTV), contactos e anexos de documentos.
 - 📦 **Gestão de Inventário:** Controlo de stock e visualização do estado em tempo real.
-- 🗂️ **Alugueres e Contratos:** Geração automatizada de contratos e recibos em HTML/A4, com lógica robusta para prolongamento e cálculo de cauções e IVA.
-- 💰 **Contabilidade:** Partilha e acerto automático de valores financeiros (Ex: 80/20 base + 50/50 transporte).
+- 🗂️ **Alugueres e Contratos:** Geração automatizada de contratos e recibos em HTML/A4, com suporte a múltiplos prolongamentos.
+- 💰 **Contabilidade:** Partilha e acerto automático de valores financeiros entre sócios (Ex: 80/20 base + 50/50 transporte) e gestão direta de prolongamentos (criação, edição e exclusão integrada).
 
 ## 💻 Tecnologias
 - **Frontend:** React 19, Vite, TypeScript
@@ -52,7 +52,7 @@
    Aceda a `http://localhost:5173` no seu navegador.
 
 ## 🧪 Testes
-Para correr a suite de testes unitários (Vitest) e garantir a fiabilidade da lógica:
+Para correr a suíte de testes unitários (Vitest) e garantir a fiabilidade da lógica financeira:
 ```bash
 npm run test
 ```

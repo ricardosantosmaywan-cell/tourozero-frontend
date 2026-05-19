@@ -90,6 +90,14 @@ export default function Dashboard() {
     
     // Filtragem do Histórico de Concluídos
     const filteredCompletedRentals = useMemo(() => {
+        const getExtValue = (ext: any): number => {
+            if (!ext) return 0;
+            if (typeof ext.extra_materials === 'number') return ext.extra_materials;
+            if (typeof ext.extra_value === 'number') return ext.extra_value;
+            const diff = Number(ext.new_value || 0) - Number(ext.old_value || 0);
+            return diff > 0 ? diff : 0;
+        };
+
         let list = (rentals || []).filter(r => {
             const statusStr = typeof r.status === 'string' ? r.status.toLowerCase() : '';
             return ['completed', 'finalizado', 'concluido', 'concluído'].includes(statusStr);
@@ -102,27 +110,73 @@ export default function Dashboard() {
             );
         }
 
-        // Filtro por Data
-        if (historyStartDate) {
-            const start = new Date(historyStartDate);
-            start.setHours(0, 0, 0, 0);
-            list = list.filter(r => new Date(r.return_date) >= start);
-        }
-        if (historyEndDate) {
-            const end = new Date(historyEndDate);
-            end.setHours(23, 59, 59, 999);
-            list = list.filter(r => new Date(r.return_date) <= end);
+        // Mapeia e calcula os valores estritos e filtra por data com base no início (pickup_date) usando strings YMD (timezone safe)
+        let mappedList = list.map(r => {
+            const exts = Array.isArray(r.extensions_history) ? r.extensions_history : [];
+            const extMatTotal = exts.reduce((s: number, e: any) => s + getExtValue(e), 0);
+            const initialMatValue = Math.max(0, (r.materials_value || 0) - extMatTotal);
+
+            const getYearMonthDay = (dateStr: string) => {
+                if (!dateStr) return '';
+                return dateStr.includes('T') ? dateStr.split('T')[0] : dateStr.trim();
+            };
+
+            const pickupYMD = getYearMonthDay(r.pickup_date);
+            const startYMD = historyStartDate || '';
+            const endYMD = historyEndDate || '';
+
+            // Se não houver filtro de data ativo, mostramos o valor total
+            if (!startYMD && !endYMD) {
+                return {
+                    ...r,
+                    displayed_value: r.materials_value || 0,
+                    matches_filter: true
+                };
+            }
+
+            let displayedValue = 0;
+            let matchesFilter = false;
+
+            // 1. Verifica a data de recolha (pickup_date) inicial do aluguer
+            const pickupInFilter = (!startYMD || pickupYMD >= startYMD) && (!endYMD || pickupYMD <= endYMD);
+            if (pickupInFilter) {
+                displayedValue += initialMatValue;
+                matchesFilter = true;
+            }
+
+            // 2. Verifica cada prolongamento pelo seu início (old_return_date)
+            exts.forEach((ext: any) => {
+                if (ext.old_return_date) {
+                    const extStartYMD = getYearMonthDay(ext.old_return_date);
+                    const extInFilter = (!startYMD || extStartYMD >= startYMD) && (!endYMD || extStartYMD <= endYMD);
+                    if (extInFilter) {
+                        displayedValue += getExtValue(ext);
+                        matchesFilter = true;
+                    }
+                }
+            });
+
+            return {
+                ...r,
+                displayed_value: displayedValue,
+                matches_filter: matchesFilter
+            };
+        });
+
+        // Se houver filtros de data ativos, mantemos apenas os correspondentes
+        if (historyStartDate || historyEndDate) {
+            mappedList = mappedList.filter(item => item.matches_filter);
         }
 
         // Ordenar por data de retorno decrescente
-        list.sort((a, b) => new Date(b.return_date).getTime() - new Date(a.return_date).getTime());
+        mappedList.sort((a, b) => new Date(b.return_date).getTime() - new Date(a.return_date).getTime());
 
         // Se não houver filtros, mostrar apenas os últimos 10 (comportamento original)
         if (!historyStartDate && !historyEndDate && !searchTerm) {
-            return list.slice(0, 10);
+            return mappedList.slice(0, 10);
         }
 
-        return list;
+        return mappedList;
     }, [rentals, searchTerm, historyStartDate, historyEndDate]);
 
 
@@ -662,7 +716,7 @@ export default function Dashboard() {
                                             </span>
                                         </TableCell>
                                         <TableCell className="text-slate-400 font-medium">
-                                            {(Number(rental?.materials_value || 0)).toFixed(2)} €
+                                            {(Number(rental?.displayed_value ?? rental?.materials_value ?? 0)).toFixed(2)} €
                                         </TableCell>
                                         <TableCell className="text-right flex items-center justify-end gap-2 opacity-80">
                                             <Button

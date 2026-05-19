@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from './ui/Button';
-import { X, FileText, Edit2, Trash2, User, Hash, Phone, Mail, MapPin, Calendar, Clock, Activity, Package, CreditCard } from 'lucide-react';
+import { Input } from './ui/Input';
+import { X, FileText, Edit2, Trash2, User, Hash, Phone, Mail, MapPin, Calendar, Clock, Activity, Package, CreditCard, Pencil, Save } from 'lucide-react';
 import { useGlobalRentals } from '../data/api';
 import { supabase } from '../lib/supabase';
 import { printRentalContractHTML } from '../lib/htmlContractGenerator';
@@ -29,12 +30,25 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
     const [liveIvaTransp, setLiveIvaTransp] = useState<number>(0);
     const [liveTotal, setLiveTotal] = useState<number>(0);
     const [liveReceivedBy, setLiveReceivedBy] = useState<string>('Não definido');
+    
+    // Prolongamento Edit/Delete States
+    const [liveHistory, setLiveHistory] = useState<any[]>([]);
+    const [refreshKey, setRefreshKey] = useState(0);
+    const [editingExt, setEditingExt] = useState<{ extIndex: number } | null>(null);
+    const [editValue, setEditValue] = useState(0);
+    const [editStartDate, setEditStartDate] = useState('');
+    const [editReturnDate, setEditReturnDate] = useState('');
+    const [editReceivedBy, setEditReceivedBy] = useState('Ricardo');
+    const [editNote, setEditNote] = useState('');
+    const [isSavingExt, setIsSavingExt] = useState(false);
 
     useEffect(() => {
         if (!isOpen || !rental) return;
 
         setNotes(rental.observacoes || '');
         setLiveReceivedBy(rental.received_by || 'Não definido');
+        setLiveHistory(rental.extensions_history || []);
+        
         // Usar itens já mapeados no rental como estado inicial para evitar "Nenhum produto" visual
         if (rental.items && rental.items.length > 0) {
             setFetchedItems(rental.items);
@@ -46,7 +60,7 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
                 // Fetch Financials frescos
                 const { data: rentData } = await supabase
                     .from('rentals')
-                    .select('transport_value, deposit_value, iva_materials, iva_transport, total_amount, observacoes, received_by')
+                    .select('transport_value, deposit_value, iva_materials, iva_transport, total_amount, observacoes, received_by, extensions_history')
                     .eq('id', rental.id)
                     .single();
                 
@@ -58,6 +72,7 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
                     setLiveTotal(Number(rentData.total_amount || 0));
                     setNotes(rentData.observacoes || '');
                     setLiveReceivedBy(rentData.received_by || 'Não definido');
+                    setLiveHistory(rentData.extensions_history || []);
                 }
 
                 // Busca Profunda de Itens (com alias para segurança)
@@ -94,9 +109,89 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
         };
 
         loadItems();
-    }, [isOpen, rental]);
+    }, [isOpen, rental, refreshKey]);
 
     if (!isOpen || !rental) return null;
+
+    const getExtValue = (ext: any): number => {
+        if (Number(ext.extra_materials) > 0) return Number(ext.extra_materials);
+        if (Number(ext.extra_value) > 0) return Number(ext.extra_value);
+        const diff = Number(ext.new_value || 0) - Number(ext.old_value || 0);
+        return diff > 0 ? diff : 0;
+    };
+
+    const recalcRentalAfterExtChange = (rentalObj: any, newExts: any[]) => {
+        const allExts = rentalObj.extensions_history || [];
+        const baseValue    = allExts.length > 0 ? Number(allExts[0].old_value   || 0) : Number(rentalObj.total_amount   || 0);
+        const baseDeposit  = allExts.length > 0 ? Number(allExts[0].old_deposit  || 0) : Number(rentalObj.deposit_value  || 0);
+        const baseTransp   = allExts.length > 0 ? Number(allExts[0].old_transport|| 0) : Number(rentalObj.transport_value|| 0);
+        const baseReturn   = allExts.length > 0 ? allExts[0].old_return_date         : rentalObj.return_date;
+
+        if (newExts.length === 0) {
+            return {
+                extensions_history: [],
+                return_date:      baseReturn,
+                total_amount:     Number(baseValue.toFixed(2)),
+                deposit_value:    Number(baseDeposit.toFixed(2)),
+                transport_value:  Number(baseTransp.toFixed(2)),
+            };
+        }
+        const extSum  = newExts.reduce((s: number, e: any) => s + getExtValue(e), 0);
+        const lastExt = newExts[newExts.length - 1];
+        return {
+            extensions_history: newExts,
+            return_date:     lastExt.new_return_date,
+            total_amount:    Number((baseValue + extSum).toFixed(2)),
+            deposit_value:   Number(lastExt.new_deposit   ?? baseDeposit),
+            transport_value: Number(lastExt.new_transport ?? baseTransp),
+        };
+    };
+
+    const handleOpenEditExt = (extIndex: number, ext: any) => {
+        setEditingExt({ extIndex });
+        setEditValue(getExtValue(ext));
+        const formatDateForInput = (d: string) => d ? d.split('T')[0] : '';
+        setEditStartDate(formatDateForInput(ext.old_return_date));
+        setEditReturnDate(formatDateForInput(ext.new_return_date || ''));
+        setEditReceivedBy(ext.received_by || rental.received_by || 'Ricardo');
+        setEditNote(ext.note || '');
+    };
+
+    const handleDeleteExt = async (extIndex: number) => {
+        if (!window.confirm('Eliminar este prolongamento? A data e valores do aluguer serão revertidos.')) return;
+        const exts    = [...liveHistory];
+        const newExts = exts.filter((_: any, i: number) => i !== extIndex);
+        const update  = recalcRentalAfterExtChange(rental, newExts);
+        
+        await updateRentalPartial(rental.id, update);
+        setRefreshKey(prev => prev + 1);
+    };
+
+    const handleSaveExt = async () => {
+        if (!editingExt) return;
+        setIsSavingExt(true);
+        try {
+            const { extIndex } = editingExt;
+            const exts = [...liveHistory];
+            const orig = exts[extIndex];
+            exts[extIndex] = {
+                ...orig,
+                extra_materials: editValue,
+                extra_value:     editValue,
+                new_value:       Number((Number(orig.old_value || 0) + editValue).toFixed(2)),
+                old_return_date: editStartDate,
+                new_return_date: editReturnDate,
+                received_by:     editReceivedBy,
+                note:            editNote,
+            };
+            const update = recalcRentalAfterExtChange(rental, exts);
+            await updateRentalPartial(rental.id, update);
+            setEditingExt(null);
+            setRefreshKey(prev => prev + 1);
+        } finally {
+            setIsSavingExt(false);
+        }
+    };
 
     const handleSaveNotes = () => {
         updateRentalPartial(rental.id, { observacoes: notes });
@@ -382,7 +477,7 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
                         </div>
 
                         {/* Prolongamentos */}
-                        {rental.extensions_history && rental.extensions_history.map((ext: any, i: number) => (
+                        {liveHistory && liveHistory.map((ext: any, i: number) => (
                             <div key={i} className="relative pl-7 group">
                                 <div className="absolute left-[3px] top-1.5 w-2.5 h-2.5 rounded-full bg-amber-500 border-2 border-slate-900 z-10 animate-pulse"></div>
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 p-2.5 rounded-lg bg-slate-900/60 border border-slate-700/50 hover:border-amber-500/30 transition-all">
@@ -405,6 +500,24 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
                                             </span>
                                         )}
                                         {ext.note && <span className="text-[10px] italic text-slate-500 max-w-[150px] truncate" title={ext.note}>"{ext.note}"</span>}
+                                        
+                                        {/* Botões de Ação na Timeline */}
+                                        <div className="flex items-center gap-1 ml-2 border-l border-slate-800 pl-2">
+                                            <button
+                                                onClick={() => handleOpenEditExt(i, ext)}
+                                                className="p-1.5 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 transition-colors"
+                                                title="Editar Prolongamento"
+                                            >
+                                                <Pencil className="w-3.5 h-3.5" />
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeleteExt(i)}
+                                                className="p-1.5 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors"
+                                                title="Eliminar Prolongamento"
+                                            >
+                                                <Trash2 className="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -482,6 +595,117 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
                 rental={rental}
                 onConfirm={handleConfirmProlong}
             />
+
+            {/* Modal de Edição de Prolongamento */}
+            {editingExt && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 p-4 animate-in fade-in">
+                    <div className="w-full max-w-md rounded-2xl bg-slate-900 border border-amber-500/40 p-6 shadow-2xl">
+                        {/* Header */}
+                        <div className="flex items-center justify-between mb-6">
+                            <div>
+                                <h3 className="text-base font-black text-slate-50 flex items-center gap-2 uppercase tracking-tight">
+                                    <Pencil className="h-4 w-4 text-amber-500" />
+                                    Editar Prolongamento
+                                </h3>
+                                <p className="text-[10px] text-slate-500 mt-0.5">
+                                    {rental.customers?.full_name} • Prolongamento #{editingExt.extIndex + 1}
+                                </p>
+                            </div>
+                            <button onClick={() => setEditingExt(null)} className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/5 text-slate-400 hover:text-slate-200 transition-all">
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            {/* Valor Base */}
+                            <div>
+                                <label className="block text-[10px] font-bold text-emerald-400/80 uppercase tracking-widest mb-1">Valor Extra Materiais (€)</label>
+                                <Input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={editValue}
+                                    onChange={e => setEditValue(parseFloat(e.target.value) || 0)}
+                                    className="bg-slate-950 border-emerald-500/20 text-lg font-black text-emerald-400 h-12"
+                                />
+                                <div className="flex gap-4 mt-1">
+                                    <p className="text-[9px] text-emerald-500/60">Proposta (80%): {(editValue * 0.8).toFixed(2)} €</p>
+                                    <p className="text-[9px] text-blue-500/60">Comissão (20%): {(editValue * 0.2).toFixed(2)} €</p>
+                                </div>
+                            </div>
+
+                            {/* Datas de Início e Término */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-[10px] font-bold text-amber-400/80 uppercase tracking-widest mb-1">Data de Início</label>
+                                    <Input
+                                        type="date"
+                                        value={editStartDate}
+                                        onChange={e => setEditStartDate(e.target.value)}
+                                        className="bg-slate-950 border-slate-800 font-bold text-amber-400 h-11"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-bold text-amber-400/80 uppercase tracking-widest mb-1">Data de Término</label>
+                                    <Input
+                                        type="date"
+                                        value={editReturnDate}
+                                        onChange={e => setEditReturnDate(e.target.value)}
+                                        className="bg-slate-950 border-slate-800 font-bold text-amber-400 h-11"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Recebido Por */}
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Recebido Por</label>
+                                <select
+                                    value={editReceivedBy}
+                                    onChange={e => setEditReceivedBy(e.target.value)}
+                                    className="w-full h-10 px-3 bg-slate-950 border border-slate-800 text-sm text-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-amber-500/30"
+                                >
+                                    <option value="Ricardo">Ricardo</option>
+                                    <option value="Gabriel">Gabriel</option>
+                                </select>
+                            </div>
+
+                            {/* Notas */}
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Notas Internas</label>
+                                <textarea
+                                    value={editNote}
+                                    onChange={e => setEditNote(e.target.value)}
+                                    rows={2}
+                                    className="w-full rounded-lg border border-slate-800 bg-slate-950 p-3 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-amber-500/30 resize-none placeholder:text-slate-700"
+                                    placeholder="Observações do prolongamento..."
+                                />
+                            </div>
+                        </div>
+
+                        {/* Acções */}
+                        <div className="flex gap-3 pt-5 border-t border-slate-800 mt-5">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                className="flex-1 h-11 border-slate-700 text-slate-400 hover:bg-slate-800 text-xs"
+                                onClick={() => setEditingExt(null)}
+                                disabled={isSavingExt}
+                            >
+                                Cancelar
+                            </Button>
+                            <Button
+                                type="button"
+                                className="flex-[2] h-11 bg-amber-500 hover:bg-amber-600 text-slate-900 font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-amber-500/10"
+                                onClick={handleSaveExt}
+                                disabled={isSavingExt}
+                            >
+                                <Save className="w-4 h-4" />
+                                {isSavingExt ? 'A Guardar...' : 'Guardar Alterações'}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     </div>
     );
