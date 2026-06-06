@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
-import { X, FileText, Edit2, Trash2, User, Hash, Phone, Mail, MapPin, Calendar, Clock, Activity, Package, CreditCard, Pencil, Save } from 'lucide-react';
+import { X, FileText, Edit2, Trash2, Pencil, Save, CalendarPlus, Printer } from 'lucide-react';
 import { useGlobalRentals } from '../data/api';
 import { supabase } from '../lib/supabase';
 import { printRentalContractHTML } from '../lib/htmlContractGenerator';
 import { ProlongModal } from './ProlongModal';
-import { CalendarPlus } from 'lucide-react';
 
 interface ViewRentalModalProps {
     isOpen: boolean;
@@ -22,18 +21,16 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
     const [fetchedItems, setFetchedItems] = useState<any[]>([]);
     const [isLoadingItems, setIsLoadingItems] = useState(false);
     const [isProlongModalOpen, setIsProlongModalOpen] = useState(false);
-    
-    // Financial Sync States
-    const [liveTransport, setLiveTransport] = useState<number>(0);
-    const [liveDeposit, setLiveDeposit] = useState<number>(0);
-    const [liveIvaMats, setLiveIvaMats] = useState<number>(0);
-    const [liveIvaTransp, setLiveIvaTransp] = useState<number>(0);
-    const [liveTotal, setLiveTotal] = useState<number>(0);
-    const [liveReceivedBy, setLiveReceivedBy] = useState<string>('Não definido');
-    
-    // Prolongamento Edit/Delete States
+
+    const [liveTransport, setLiveTransport] = useState(0);
+    const [liveDeposit, setLiveDeposit] = useState(0);
+    const [liveIvaMats, setLiveIvaMats] = useState(0);
+    const [liveIvaTransp, setLiveIvaTransp] = useState(0);
+    const [liveTotal, setLiveTotal] = useState(0);
+    const [liveReceivedBy, setLiveReceivedBy] = useState('Não definido');
     const [liveHistory, setLiveHistory] = useState<any[]>([]);
     const [refreshKey, setRefreshKey] = useState(0);
+
     const [editingExt, setEditingExt] = useState<{ extIndex: number } | null>(null);
     const [editValue, setEditValue] = useState(0);
     const [editStartDate, setEditStartDate] = useState('');
@@ -44,26 +41,18 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
 
     useEffect(() => {
         if (!isOpen || !rental) return;
-
         setNotes(rental.observacoes || '');
         setLiveReceivedBy(rental.received_by || 'Não definido');
         setLiveHistory(rental.extensions_history || []);
-        
-        // Usar itens já mapeados no rental como estado inicial para evitar "Nenhum produto" visual
-        if (rental.items && rental.items.length > 0) {
-            setFetchedItems(rental.items);
-        }
+        if (rental.items && rental.items.length > 0) setFetchedItems(rental.items);
 
-        const loadItems = async () => {
+        const load = async () => {
             setIsLoadingItems(true);
             try {
-                // Fetch Financials frescos
                 const { data: rentData } = await supabase
                     .from('rentals')
                     .select('transport_value, deposit_value, iva_materials, iva_transport, total_amount, observacoes, received_by, extensions_history')
-                    .eq('id', rental.id)
-                    .single();
-                
+                    .eq('id', rental.id).single();
                 if (rentData) {
                     setLiveTransport(Number(rentData.transport_value || 0));
                     setLiveDeposit(Number(rentData.deposit_value || 0));
@@ -74,41 +63,20 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
                     setLiveReceivedBy(rentData.received_by || 'Não definido');
                     setLiveHistory(rentData.extensions_history || []);
                 }
-
-                // Busca Profunda de Itens (com alias para segurança)
-                const { data, error } = await supabase
+                const { data } = await supabase
                     .from('rental_items')
-                    .select(`
-                        quantity,
-                        price_unit,
-                        products:product_id ( name )
-                    `)
+                    .select('quantity, price_unit, products:product_id ( name )')
                     .eq('rental_id', rental.id);
-
-                if (error) throw error;
-
                 if (data && data.length > 0) {
-                    const mapped = data.map((item: any) => {
-                        const prodData = Array.isArray(item.products) ? item.products[0] : item.products;
-                        return {
-                            quantity: Number(item.quantity || 0),
-                            price_unit: Number(item.price_unit || 0),
-                            name: prodData?.name || item.name || 'Produto'
-                        };
-                    });
-                    setFetchedItems(mapped);
-                } else if (rental.items && rental.items.length > 0) {
-                    // Mantém os da prop se o fetch falhar mas a prop tiver dados
-                    setFetchedItems(rental.items);
+                    setFetchedItems(data.map((item: any) => {
+                        const p = Array.isArray(item.products) ? item.products[0] : item.products;
+                        return { quantity: Number(item.quantity || 0), price_unit: Number(item.price_unit || 0), name: p?.name || 'Produto' };
+                    }));
                 }
-            } catch (err) {
-                console.error("Erro ao carregar os itens do aluguer", err);
-            } finally {
-                setIsLoadingItems(false);
-            }
+            } catch (err) { console.error(err); }
+            finally { setIsLoadingItems(false); }
         };
-
-        loadItems();
+        load();
     }, [isOpen, rental, refreshKey]);
 
     if (!isOpen || !rental) return null;
@@ -122,48 +90,20 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
 
     const recalcRentalAfterExtChange = (rentalObj: any, newExts: any[]) => {
         const allExts = rentalObj.extensions_history || [];
-        const baseValue    = allExts.length > 0 ? Number(allExts[0].old_value   || 0) : Number(rentalObj.total_amount   || 0);
-        const baseDeposit  = allExts.length > 0 ? Number(allExts[0].old_deposit  || 0) : Number(rentalObj.deposit_value  || 0);
-        const baseTransp   = allExts.length > 0 ? Number(allExts[0].old_transport|| 0) : Number(rentalObj.transport_value|| 0);
-        const baseReturn   = allExts.length > 0 ? allExts[0].old_return_date         : rentalObj.return_date;
-
-        if (newExts.length === 0) {
-            return {
-                extensions_history: [],
-                return_date:      baseReturn,
-                total_amount:     Number(baseValue.toFixed(2)),
-                deposit_value:    Number(baseDeposit.toFixed(2)),
-                transport_value:  Number(baseTransp.toFixed(2)),
-            };
-        }
+        const baseValue   = allExts.length > 0 ? Number(allExts[0].old_value    || 0) : Number(rentalObj.total_amount    || 0);
+        const baseDeposit = allExts.length > 0 ? Number(allExts[0].old_deposit   || 0) : Number(rentalObj.deposit_value   || 0);
+        const baseTransp  = allExts.length > 0 ? Number(allExts[0].old_transport || 0) : Number(rentalObj.transport_value || 0);
+        const baseReturn  = allExts.length > 0 ? allExts[0].old_return_date          : rentalObj.return_date;
+        if (newExts.length === 0) return { extensions_history: [], return_date: baseReturn, total_amount: Number(baseValue.toFixed(2)), deposit_value: Number(baseDeposit.toFixed(2)), transport_value: Number(baseTransp.toFixed(2)) };
         const extSum  = newExts.reduce((s: number, e: any) => s + getExtValue(e), 0);
         const lastExt = newExts[newExts.length - 1];
-        return {
-            extensions_history: newExts,
-            return_date:     lastExt.new_return_date,
-            total_amount:    Number((baseValue + extSum).toFixed(2)),
-            deposit_value:   Number(lastExt.new_deposit   ?? baseDeposit),
-            transport_value: Number(lastExt.new_transport ?? baseTransp),
-        };
-    };
-
-    const handleOpenEditExt = (extIndex: number, ext: any) => {
-        setEditingExt({ extIndex });
-        setEditValue(getExtValue(ext));
-        const formatDateForInput = (d: string) => d ? d.split('T')[0] : '';
-        setEditStartDate(formatDateForInput(ext.old_return_date));
-        setEditReturnDate(formatDateForInput(ext.new_return_date || ''));
-        setEditReceivedBy(ext.received_by || rental.received_by || 'Ricardo');
-        setEditNote(ext.note || '');
+        return { extensions_history: newExts, return_date: lastExt.new_return_date, total_amount: Number((baseValue + extSum).toFixed(2)), deposit_value: Number(lastExt.new_deposit ?? baseDeposit), transport_value: Number(lastExt.new_transport ?? baseTransp) };
     };
 
     const handleDeleteExt = async (extIndex: number) => {
-        if (!window.confirm('Eliminar este prolongamento? A data e valores do aluguer serão revertidos.')) return;
-        const exts    = [...liveHistory];
-        const newExts = exts.filter((_: any, i: number) => i !== extIndex);
-        const update  = recalcRentalAfterExtChange(rental, newExts);
-        
-        await updateRentalPartial(rental.id, update);
+        if (!window.confirm('Eliminar este prolongamento?')) return;
+        const newExts = liveHistory.filter((_: any, i: number) => i !== extIndex);
+        await updateRentalPartial(rental.id, recalcRentalAfterExtChange(rental, newExts));
         setRefreshKey(prev => prev + 1);
     };
 
@@ -171,542 +111,303 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
         if (!editingExt) return;
         setIsSavingExt(true);
         try {
-            const { extIndex } = editingExt;
             const exts = [...liveHistory];
-            const orig = exts[extIndex];
-            exts[extIndex] = {
-                ...orig,
-                extra_materials: editValue,
-                extra_value:     editValue,
-                new_value:       Number((Number(orig.old_value || 0) + editValue).toFixed(2)),
-                old_return_date: editStartDate,
-                new_return_date: editReturnDate,
-                received_by:     editReceivedBy,
-                note:            editNote,
-            };
-            const update = recalcRentalAfterExtChange(rental, exts);
-            await updateRentalPartial(rental.id, update);
+            const orig = exts[editingExt.extIndex];
+            exts[editingExt.extIndex] = { ...orig, extra_materials: editValue, extra_value: editValue, new_value: Number((Number(orig.old_value || 0) + editValue).toFixed(2)), old_return_date: editStartDate, new_return_date: editReturnDate, received_by: editReceivedBy, note: editNote };
+            await updateRentalPartial(rental.id, recalcRentalAfterExtChange(rental, exts));
             setEditingExt(null);
             setRefreshKey(prev => prev + 1);
-        } finally {
-            setIsSavingExt(false);
-        }
+        } finally { setIsSavingExt(false); }
     };
 
-    const handleSaveNotes = () => {
-        updateRentalPartial(rental.id, { observacoes: notes });
-        onClose();
-    };
+    const handleSaveNotes = () => { updateRentalPartial(rental.id, { observacoes: notes }); onClose(); };
 
     const handleConfirmProlong = async (daysDiff: number, extraValue: number, note: string, newItems: any[], newReturnDateStr: string, depositValue: number, transportValue: number, receivedBy: string) => {
         const oldTotal = Number(rental.total_amount || 0);
-        
-        // O extraValue vindo do modal é apenas o adicional de materiais.
-        // O novo total é o total antigo + extra de materiais + diferença de caução/transporte (se houver alteração manual)
-        const diffDeposit = depositValue - (Number(rental.deposit_value || 0));
-        const diffTransport = transportValue - (Number(rental.transport_value || 0));
-        const newTotal = oldTotal + extraValue + diffDeposit + diffTransport;
-        
-        // Calcular novo total de semanas (original + fração do prolongamento)
-        const oldWeeks = Number(rental.semanas || 0);
-        const extraWeeksFraction = daysDiff / 7;
-        const newWeeksTotal = Number((oldWeeks + extraWeeksFraction).toFixed(1));
-
-        // Registo para o histórico
-        const extensionEntry = {
-            date: new Date().toISOString(),
-            type: 'prolongamento',
-            days_added: daysDiff,
-            extra_materials: extraValue,
-            old_return_date: rental.return_date,
-            new_return_date: newReturnDateStr,
-            old_value: oldTotal,
-            new_value: newTotal,
-            old_deposit: Number(rental.deposit_value || 0),
-            new_deposit: depositValue,
-            old_transport: Number(rental.transport_value || 0),
-            new_transport: transportValue,
-            received_by: receivedBy || 'Ricardo',
-            note: note,
-            added_items: newItems.map(it => ({ name: it.product.name, quantity: it.quantity }))
-        };
-
-        const updatedHistory = [...(rental.extensions_history || []), extensionEntry];
-
+        const newTotal = oldTotal + extraValue + (depositValue - Number(rental.deposit_value || 0)) + (transportValue - Number(rental.transport_value || 0));
+        const newWeeksTotal = Number((Number(rental.semanas || 0) + daysDiff / 7).toFixed(1));
+        const extensionEntry = { date: new Date().toISOString(), type: 'prolongamento', days_added: daysDiff, extra_materials: extraValue, old_return_date: rental.return_date, new_return_date: newReturnDateStr, old_value: oldTotal, new_value: newTotal, old_deposit: Number(rental.deposit_value || 0), new_deposit: depositValue, old_transport: Number(rental.transport_value || 0), new_transport: transportValue, received_by: receivedBy || 'Ricardo', note, added_items: newItems.map(it => ({ name: it.product.name, quantity: it.quantity })) };
         try {
-            // 1. Atualizar Header do Aluguer no DB
-            await updateRentalPartial(rental.id, {
-                return_date: newReturnDateStr,
-                total_amount: Number(newTotal.toFixed(2)),
-                deposit_value: Number(depositValue.toFixed(2)),
-                transport_value: Number(transportValue.toFixed(2)),
-                received_by: receivedBy || 'Ricardo',
-                semanas: newWeeksTotal,
-                rental_duration_value: newWeeksTotal, // Sincronizar com a nova duração total
-                extensions_history: updatedHistory
-            });
-
-            // 2. Processar novos itens (Agregando itens repetidos para evitar bugs de soma)
+            await updateRentalPartial(rental.id, { return_date: newReturnDateStr, total_amount: Number(newTotal.toFixed(2)), deposit_value: Number(depositValue.toFixed(2)), transport_value: Number(transportValue.toFixed(2)), received_by: receivedBy || 'Ricardo', semanas: newWeeksTotal, rental_duration_value: newWeeksTotal, extensions_history: [...(rental.extensions_history || []), extensionEntry] });
             if (newItems && newItems.length > 0) {
-                // Agrupar itens por product_id
-                const aggregatedItems: {[key: string]: {product: any, quantity: number}} = {};
-                newItems.forEach(item => {
-                    if (aggregatedItems[item.product.id]) {
-                        aggregatedItems[item.product.id].quantity += item.quantity;
-                    } else {
-                        aggregatedItems[item.product.id] = { ...item };
-                    }
-                });
-
-                for (const productId in aggregatedItems) {
-                    const item = aggregatedItems[productId];
-                    // Verificar se produto já existe no aluguer original
-                    const existingItem = (rental.items || []).find((it: any) => it.product_id === productId);
-                    
-                    if (existingItem) {
-                        // UPDATE na tabela rental_items (incrementar quantidade)
-                        const { error: itemUpdateErr } = await supabase
-                            .from('rental_items')
-                            .update({ quantity: Number(existingItem.quantity || 0) + item.quantity })
-                            .eq('rental_id', rental.id)
-                            .eq('product_id', productId);
-                        if (itemUpdateErr) throw itemUpdateErr;
-                    } else {
-                        // INSERT na tabela rental_items
-                        const { error: itemInsertErr } = await supabase
-                            .from('rental_items')
-                            .insert([{
-                                rental_id: rental.id,
-                                product_id: productId,
-                                quantity: item.quantity,
-                                price_unit: item.product.price_unit || 0
-                            }]);
-                        if (itemInsertErr) throw itemInsertErr;
-                    }
-
-                    // 3. Atualizar Stock do Produto
-                    const { data: prodData } = await supabase.from('products').select('available').eq('id', productId).single();
-                    if (prodData) {
-                        await supabase.from('products').update({ available: prodData.available - item.quantity }).eq('id', productId);
-                    }
+                for (const item of newItems) {
+                    const existing = (rental.items || []).find((it: any) => it.product_id === item.product.id);
+                    if (existing) { await supabase.from('rental_items').update({ quantity: Number(existing.quantity || 0) + item.quantity }).eq('rental_id', rental.id).eq('product_id', item.product.id); }
+                    else { await supabase.from('rental_items').insert([{ rental_id: rental.id, product_id: item.product.id, quantity: item.quantity, price_unit: item.product.price_unit || 0 }]); }
+                    const { data: p } = await supabase.from('products').select('available').eq('id', item.product.id).single();
+                    if (p) await supabase.from('products').update({ available: p.available - item.quantity }).eq('id', item.product.id);
                 }
             }
-            
-            onClose();
-        } catch (err: any) {
-            alert("Erro ao processar prolongamento: " + err.message);
-        }
+            setRefreshKey(prev => prev + 1);
+            setIsProlongModalOpen(false);
+        } catch (err: any) { alert('Erro ao prolongar: ' + err.message); }
     };
 
-    const subMatsRef = Number((liveTotal || 0) - (liveTransport || 0) - (liveDeposit || 0) - (liveIvaMats || 0) - (liveIvaTransp || 0));
+    // Helpers de formatação
+    const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '---';
+    const fmtDateShort = (d: string) => d ? new Date(d).toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' }) : '---';
+    const fmtMoney = (v: number) => v.toFixed(2) + ' €';
+
+    const durationLabel = `${rental.rental_duration_value || rental.semanas || 1} ${rental.rental_duration_type === 'dia' ? ((rental.rental_duration_value || 1) === 1 ? 'dia' : 'dias') : ((rental.rental_duration_value || rental.semanas || 1) === 1 ? 'semana' : 'semanas')}`;
+    const liveMaterials = liveTotal - liveTransport - liveDeposit - liveIvaMats - liveIvaTransp;
+    const hasIva = liveIvaMats > 0 || liveIvaTransp > 0;
 
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-2 md:p-4 animate-in fade-in overflow-y-auto">
-            <div className="w-full max-w-4xl rounded-2xl bg-slate-900 border border-slate-800 p-4 md:p-6 shadow-2xl my-4">
-                <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg font-bold tracking-tight text-slate-50 flex items-center gap-2">
-                        <FileText className="h-4 w-4 text-amber-500" />
-                        Ficha de Detalhes
+            <div className="w-full max-w-lg rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl my-4">
+
+                {/* Header */}
+                <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800">
+                    <h2 className="text-base font-bold text-slate-50 flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-amber-500" /> Ficha do Aluguer
                     </h2>
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
                         <X className="h-4 w-4 text-slate-400" />
                     </Button>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    {/* Coluna Esquerda: Dados do Cliente */}
-                    <div className="space-y-4">
-                        <div className="p-3 bg-slate-800/40 rounded-lg border border-slate-800/60 transition-colors hover:border-slate-700/80">
-                            <h3 className="text-[11px] uppercase tracking-wider font-bold text-amber-500 mb-2 flex items-center gap-1.5">
-                                <User className="h-3 w-3" /> Dados do Cliente
-                            </h3>
-                            <div className="grid grid-cols-2 gap-x-3 gap-y-2">
-                                <div className="col-span-2 sm:col-span-1">
-                                    <p className="text-[10px] font-medium text-slate-500 uppercase flex items-center gap-1"><User className="h-2.5 w-2.5" /> Cliente</p>
-                                    <p className="text-sm font-semibold text-slate-100 truncate">{rental.customers?.full_name}</p>
-                                </div>
-                                <div className="col-span-2 sm:col-span-1">
-                                    <p className="text-[10px] font-medium text-slate-500 uppercase flex items-center gap-1"><Hash className="h-2.5 w-2.5" /> NIF</p>
-                                    <p className="text-sm font-semibold text-slate-100">{rental.customers?.tax_id || '---'}</p>
-                                </div>
-                                <div className="col-span-2 sm:col-span-1">
-                                    <p className="text-[10px] font-medium text-slate-500 uppercase flex items-center gap-1"><Phone className="h-2.5 w-2.5" /> WhatsApp</p>
-                                    {rental.customers?.phone ? (
-                                        <a href={`https://wa.me/351${rental.customers.phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="text-sm font-semibold text-emerald-400 hover:text-emerald-300 transition-colors">
-                                            {rental.customers.phone}
-                                        </a>
-                                    ) : (
-                                        <p className="text-sm font-semibold text-slate-500">Não informado</p>
-                                    )}
-                                </div>
-                                <div className="col-span-2 sm:col-span-1">
-                                    <p className="text-[10px] font-medium text-slate-500 uppercase flex items-center gap-1"><Mail className="h-2.5 w-2.5" /> E-mail</p>
-                                    <p className="text-sm font-semibold text-slate-100 truncate">{rental.customers?.email || '---'}</p>
-                                </div>
-                            </div>
-                            <div className="mt-3 p-2 bg-slate-900/60 rounded border border-slate-700/40">
-                                <p className="text-[10px] font-medium text-amber-500 uppercase flex items-center gap-1 mb-0.5"><MapPin className="h-2.5 w-2.5" /> Endereço da Obra</p>
-                                <p className="text-xs font-medium text-slate-300 leading-tight">
-                                    {rental.delivery_address ? rental.delivery_address : <span className="text-slate-500 italic">Recolha nas instalações</span>}
-                                </p>
-                            </div>
+                <div className="p-5 space-y-4">
+
+                    {/* Bloco 1: Resumo Principal */}
+                    <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 p-4">
+                        {/* Datas */}
+                        <div className="text-center mb-3">
+                            <p className="text-2xl font-black text-slate-50 tracking-tight">
+                                {fmtDateShort(rental.pickup_date)} a {fmtDate(rental.return_date)}
+                            </p>
+                            <p className="text-sm text-slate-400 mt-0.5">{durationLabel}</p>
                         </div>
 
-                        {/* Produtos (Compacto) */}
-                        <div className="p-3 bg-slate-800/40 rounded-lg border border-slate-800/60 transition-colors hover:border-slate-700/80">
-                            <h3 className="text-[11px] uppercase tracking-wider font-bold text-amber-500 mb-2 flex items-center gap-1.5 font-mono">
-                                <Package className="h-3 w-3" /> Itens Alugados
-                            </h3>
-                            <div className="space-y-1 max-h-[100px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
-                                {isLoadingItems ? (
-                                    <div className="text-[11px] text-slate-500 italic py-2">A carregar itens...</div>
-                                ) : fetchedItems.length > 0 ? (
-                                    fetchedItems.map((item: any, idx: number) => (
-                                        <div key={idx} className="flex items-center justify-between text-[11px] bg-slate-900/60 px-2 py-1.5 rounded border border-slate-700/30 group hover:border-amber-500/30 transition-colors">
-                                            <span className="text-slate-300 font-medium group-hover:text-slate-100"><span className="text-amber-500/70 font-bold">{item.quantity}x</span> {item.name}</span>
-                                            <span className="text-slate-500 font-mono">{(item.price_unit * item.quantity).toFixed(2)}€</span>
-                                        </div>
-                                    ))
-                                ) : (
-                                    <div className="text-[11px] text-slate-500 italic py-2 text-center bg-slate-900/40 rounded">Nenhum produto associado.</div>
+                        {/* Cliente */}
+                        <div className="border-t border-slate-700/50 pt-3 space-y-1">
+                            <p className="text-sm font-semibold text-slate-100">{rental.customers?.full_name}</p>
+                            <div className="flex flex-wrap gap-3 text-xs text-slate-400">
+                                {rental.customers?.phone && (
+                                    <a href={`https://wa.me/351${rental.customers.phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="text-emerald-400 hover:text-emerald-300">
+                                        📱 {rental.customers.phone}
+                                    </a>
                                 )}
+                                {rental.customers?.tax_id && <span>NIF: {rental.customers.tax_id}</span>}
+                                {rental.customers?.email && <span>{rental.customers.email}</span>}
                             </div>
+                            {rental.delivery_address && (
+                                <p className="text-xs text-amber-400/80 mt-1">📍 {rental.delivery_address}</p>
+                            )}
                         </div>
                     </div>
 
-                    {/* Coluna Direita: Detalhes do Aluguer e Tabela de Valores */}
-                    <div className="space-y-4">
-                        <div className="p-3 bg-slate-800/40 rounded-lg border border-slate-800/60">
-                            <h3 className="text-[11px] uppercase tracking-wider font-bold text-amber-500 mb-2 flex items-center gap-1.5">
-                                <Activity className="h-3 w-3" /> Detalhes do Aluguer
-                            </h3>
-                            <div className="grid grid-cols-2 gap-3 pb-3 border-b border-slate-700/40 mb-3">
-                                <div>
-                                    <p className="text-[10px] font-medium text-slate-500 uppercase flex items-center gap-1"><Calendar className="h-2.5 w-2.5" /> Início</p>
-                                    <p className="text-sm font-semibold text-slate-100">{new Date(rental.pickup_date).toLocaleDateString('pt-PT')}</p>
-                                </div>
-                                <div>
-                                    <p className="text-[10px] font-medium text-slate-500 uppercase flex items-center gap-1"><Calendar className="h-2.5 w-2.5" /> Fim</p>
-                                    <p className="text-sm font-semibold text-slate-100">{new Date(rental.return_date).toLocaleDateString('pt-PT')}</p>
-                                </div>
-                                <div>
-                                    <p className="text-[10px] font-medium text-slate-500 uppercase flex items-center gap-1"><Clock className="h-2.5 w-2.5" /> Duração</p>
-                                    <p className="text-sm font-semibold text-slate-100">
-                                        {rental.rental_duration_value || rental.semanas} {
-                                            (rental.rental_duration_type === 'dia' ? 
-                                                ((rental.rental_duration_value || 1) === 1 ? 'dia' : 'dias') : 
-                                                ((rental.rental_duration_value || rental.semanas || 1) === 1 ? 'semana' : 'semanas'))
-                                        }
-                                    </p>
-                                </div>
-                                <div>
-                                    <p className="text-[10px] font-medium text-slate-500 uppercase flex items-center gap-1"><Activity className="h-2.5 w-2.5" /> Status</p>
-                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${rental.status === 'active' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-slate-700 text-slate-300'}`}>
-                                        {rental.status === 'active' ? 'Ativo' : rental.status === 'completed' ? 'Concluído' : rental.status}
-                                    </span>
-                                </div>
-                                <div>
-                                    <p className="text-[10px] font-medium text-slate-500 uppercase flex items-center gap-1"><User className="h-2.5 w-2.5" /> Recebido por</p>
-                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${liveReceivedBy === 'Ricardo' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-purple-500/10 text-purple-400 border-purple-500/20'}`}>
-                                        {liveReceivedBy}
-                                    </span>
-                                </div>
-                            </div>
-
-                            {/* Tabela de Valores Slim */}
-                            <div className="bg-slate-900/60 rounded-lg border border-slate-700/40 overflow-hidden">
-                                <table className="w-full text-[11px]">
-                                    <tbody className="divide-y divide-slate-700/30">
-                                        <tr>
-                                            <td className="px-3 py-1 text-slate-400 flex items-center gap-1.5">Subtotal Materiais</td>
-                                            <td className="px-3 py-1 text-right font-semibold text-slate-100">{subMatsRef.toFixed(2)} €</td>
-                                        </tr>
-                                        <tr>
-                                            <td className="px-3 py-1 text-slate-500 flex items-center gap-1.5 pl-6">IVA Materiais ({subMatsRef > 0 ? Math.round((liveIvaMats / subMatsRef) * 100) : 0}%)</td>
-                                            <td className="px-3 py-1 text-right font-medium text-slate-400">{Number(liveIvaMats || 0).toFixed(2)} €</td>
-                                        </tr>
-                                        <tr>
-                                            <td className="px-3 py-1 text-slate-400 flex items-center gap-1.5">Subtotal Transporte</td>
-                                            <td className="px-3 py-1 text-right font-semibold text-slate-100">{Number(liveTransport || 0).toFixed(2)} €</td>
-                                        </tr>
-                                        <tr>
-                                            <td className="px-3 py-1 text-slate-500 flex items-center gap-1.5 pl-6">IVA Transporte ({liveTransport > 0 ? Math.round((liveIvaTransp / liveTransport) * 100) : 0}%)</td>
-                                            <td className="px-3 py-1 text-right font-medium text-slate-400">{Number(liveIvaTransp || 0).toFixed(2)} €</td>
-                                        </tr>
-                                        <tr className="bg-blue-500/10 border-y border-blue-500/20">
-                                            <td className="px-3 py-2 text-blue-400 font-bold flex items-center gap-1.5 uppercase tracking-tighter">Caução Total Acumulada</td>
-                                            <td className="px-3 py-2 text-right font-black text-blue-400">{Number(liveDeposit || 0).toFixed(2)} €</td>
-                                        </tr>
-                                        <tr className="bg-amber-500/5">
-                                            <td className="px-3 py-2 text-slate-100 font-bold flex items-center gap-1.5 uppercase tracking-tighter"><CreditCard className="h-3 w-3 text-amber-500" /> Total a Pagar</td>
-                                            <td className="px-3 py-2 text-right text-lg font-black text-amber-500">{Number(liveTotal).toFixed(2)} €</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Linha do Tempo / Timeline do Contrato */}
-                <div className="md:col-span-3 mt-4 p-4 bg-slate-950/50 rounded-xl border border-slate-800 shadow-inner">
-                    <h3 className="text-[11px] uppercase tracking-widest font-black text-slate-400 mb-4 flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-amber-500" /> Histórico deste Contrato (Timeline)
-                    </h3>
-                    
-                    <div className="space-y-3 relative before:absolute before:inset-0 before:left-2 before:w-0.5 before:bg-slate-800 before:pointer-events-none pb-2">
-                        {/* Evento Inicial */}
-                        <div className="relative pl-7 group">
-                            <div className="absolute left-[3px] top-1.5 w-2.5 h-2.5 rounded-full bg-slate-700 border-2 border-slate-900 z-10 group-hover:bg-amber-500 transition-colors"></div>
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 p-2.5 rounded-lg bg-slate-900/40 border border-slate-800 group-hover:border-slate-700 transition-all">
-                                <div>
-                                    <span className="text-[10px] font-black text-slate-500 uppercase block mb-0.5">{new Date(rental.pickup_date).toLocaleDateString('pt-PT')}</span>
-                                    <span className="text-sm font-bold text-slate-200">Aluguer Inicial (Abertura)</span>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    <span className="text-xs font-medium text-emerald-500 bg-emerald-500/5 px-2 py-0.5 rounded border border-emerald-500/10">
-                                        Pago: {Number(rental.extensions_history && rental.extensions_history.length > 0 ? rental.extensions_history[0].old_value : (liveTotal || 0)).toFixed(2)}€
-                                    </span>
-                                    {(rental.extensions_history && rental.extensions_history.length > 0 ? rental.extensions_history[0].old_deposit : liveDeposit) > 0 && (
-                                        <span className="text-xs font-bold text-blue-400 bg-blue-500/5 px-2 py-0.5 rounded border border-blue-500/10">
-                                            Caução: {Number(rental.extensions_history && rental.extensions_history.length > 0 ? rental.extensions_history[0].old_deposit : liveDeposit).toFixed(2)}€
+                    {/* Bloco 2: Itens Alugados */}
+                    <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 p-4">
+                        <p className="text-[10px] font-bold text-amber-500 uppercase tracking-wider mb-2">Itens Alugados</p>
+                        {isLoadingItems ? (
+                            <p className="text-xs text-slate-500 italic">A carregar...</p>
+                        ) : fetchedItems.length > 0 ? (
+                            <div className="space-y-1">
+                                {fetchedItems.map((item, idx) => (
+                                    <div key={idx} className="flex justify-between items-center text-sm">
+                                        <span className="text-slate-200">
+                                            <span className="font-bold text-amber-400">{item.quantity}x</span> {item.name}
                                         </span>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Prolongamentos */}
-                        {liveHistory && liveHistory.map((ext: any, i: number) => (
-                            <div key={i} className="relative pl-7 group">
-                                <div className="absolute left-[3px] top-1.5 w-2.5 h-2.5 rounded-full bg-amber-500 border-2 border-slate-900 z-10 animate-pulse"></div>
-                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 p-2.5 rounded-lg bg-slate-900/60 border border-slate-700/50 hover:border-amber-500/30 transition-all">
-                                    <div>
-                                        <span className="text-[10px] font-black text-amber-500/70 uppercase block mb-0.5">{new Date(ext.date).toLocaleDateString('pt-PT')}</span>
-                                        <span className="text-sm font-bold text-slate-100 flex items-center gap-2">
-                                            Prolongamento de {ext.days_added} dias 
-                                            <span className="text-[10px] font-medium text-slate-500 bg-slate-800 px-1.5 py-0.5 rounded">
-                                                Até {new Date(ext.new_return_date).toLocaleDateString('pt-PT')}
-                                            </span>
-                                        </span>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <span className="text-xs font-black text-emerald-400">
-                                            + {Number(ext.extra_materials || ext.extra_value || 0).toFixed(2)}€
-                                        </span>
-                                        {Number(ext.new_deposit - ext.old_deposit) > 0 && (
-                                            <span className="text-xs font-bold text-blue-400">
-                                                + {Number(ext.new_deposit - ext.old_deposit).toFixed(2)}€ (Caução)
-                                            </span>
+                                        {item.price_unit > 0 && (
+                                            <span className="text-slate-400 text-xs">{fmtMoney(item.price_unit * item.quantity)}</span>
                                         )}
-                                        {ext.note && <span className="text-[10px] italic text-slate-500 max-w-[150px] truncate" title={ext.note}>"{ext.note}"</span>}
-                                        
-                                        {/* Botões de Ação na Timeline */}
-                                        <div className="flex items-center gap-1 ml-2 border-l border-slate-800 pl-2">
-                                            <button
-                                                onClick={() => handleOpenEditExt(i, ext)}
-                                                className="p-1.5 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 transition-colors"
-                                                title="Editar Prolongamento"
-                                            >
-                                                <Pencil className="w-3.5 h-3.5" />
-                                            </button>
-                                            <button
-                                                onClick={() => handleDeleteExt(i)}
-                                                className="p-1.5 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors"
-                                                title="Eliminar Prolongamento"
-                                            >
-                                                <Trash2 className="w-3.5 h-3.5" />
-                                            </button>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="text-xs text-slate-500 italic">Nenhum item.</p>
+                        )}
+                    </div>
+
+                    {/* Bloco 3: Tabela de Valores */}
+                    <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 overflow-hidden">
+                        <div className="flex items-center justify-between px-4 pt-3 pb-2">
+                            <p className="text-[10px] font-bold text-amber-500 uppercase tracking-wider">Resumo Financeiro</p>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const clientName = rental.customers?.full_name || '';
+                                    const phone = rental.customers?.phone || '';
+                                    const nif = rental.customers?.tax_id || '';
+                                    const pickupFmt = new Date(rental.pickup_date).toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' });
+                                    const returnFmt = new Date(rental.return_date).toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                                    const dur = `${rental.rental_duration_value || rental.semanas || 1} ${rental.rental_duration_type === 'dia' ? 'dia(s)' : 'semana(s)'}`;
+                                    const itemsRows = fetchedItems.map(i => `<tr><td style="padding:6px 0;border-bottom:1px solid #e2e8f0;">${i.quantity}x ${i.name}</td><td style="padding:6px 0;border-bottom:1px solid #e2e8f0;text-align:right;">${(i.price_unit > 0 ? (i.price_unit * i.quantity).toFixed(2) + ' €' : '')}</td></tr>`).join('');
+                                    const rows = [
+                                        liveMaterials > 0 ? `<tr><td style="padding:8px 0;border-bottom:1px solid #e2e8f0;">${fetchedItems.map(i => `${i.quantity}x ${i.name}`).join(', ')} — ${dur}</td><td style="padding:8px 0;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:600;">${liveMaterials.toFixed(2)} €</td></tr>` : '',
+                                        liveTransport > 0 ? `<tr><td style="padding:8px 0;border-bottom:1px solid #e2e8f0;">Transporte</td><td style="padding:8px 0;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:600;">${liveTransport.toFixed(2)} €</td></tr>` : '',
+                                        liveDeposit > 0 ? `<tr><td style="padding:8px 0;border-bottom:1px solid #e2e8f0;">Caução</td><td style="padding:8px 0;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:600;color:#3b82f6;">${liveDeposit.toFixed(2)} €</td></tr>` : '',
+                                        liveIvaMats > 0 ? `<tr><td style="padding:6px 0;border-bottom:1px solid #e2e8f0;color:#64748b;font-size:12px;">IVA Materiais</td><td style="padding:6px 0;border-bottom:1px solid #e2e8f0;text-align:right;color:#64748b;font-size:12px;">${liveIvaMats.toFixed(2)} €</td></tr>` : '',
+                                        liveIvaTransp > 0 ? `<tr><td style="padding:6px 0;border-bottom:1px solid #e2e8f0;color:#64748b;font-size:12px;">IVA Transporte</td><td style="padding:6px 0;border-bottom:1px solid #e2e8f0;text-align:right;color:#64748b;font-size:12px;">${liveIvaTransp.toFixed(2)} €</td></tr>` : '',
+                                    ].join('');
+                                    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Resumo Financeiro</title><style>body{font-family:Arial,sans-serif;max-width:480px;margin:40px auto;padding:20px;color:#1e293b;}h1{font-size:18px;font-weight:800;margin-bottom:4px;}p{margin:2px 0;color:#64748b;font-size:13px;}table{width:100%;border-collapse:collapse;margin-top:20px;}tfoot td{padding:10px 0;font-weight:800;font-size:16px;}.note{font-size:11px;color:#94a3b8;margin-top:12px;font-style:italic;}@media print{body{margin:20px;}}</style></head><body><h1>${clientName}</h1><p>${phone}${nif ? ' · NIF: ' + nif : ''}</p><p style="margin-top:8px;font-weight:600;font-size:15px;">${pickupFmt} a ${returnFmt} — ${dur}</p>${rental.delivery_address ? `<p>📍 ${rental.delivery_address}</p>` : ''}<table><tbody>${rows}</tbody><tfoot><tr><td>Total</td><td style="text-align:right;color:#d97706;">${liveTotal.toFixed(2)} €</td></tr></tfoot></table>${liveDeposit > 0 ? `<p class="note">* Caução de ${liveDeposit.toFixed(2)} € a ser devolvida no final se não houver danos.${hasIva ? ' Valores acrescidos de IVA.' : ''}</p>` : ''}</body></html>`;
+                                    const w = window.open('', '_blank');
+                                    if (w) { w.document.write(html); w.document.close(); w.focus(); setTimeout(() => w.print(), 400); }
+                                }}
+                                className="text-[10px] text-blue-400 hover:text-blue-300 border border-blue-500/30 hover:bg-blue-500/10 rounded px-2 py-0.5 transition-colors font-semibold"
+                            >
+                                🖨 Ver Resumo
+                            </button>
+                        </div>
+                        <div className="max-h-[280px] overflow-y-auto">
+                        <table className="w-full text-sm">
+                            <tbody>
+                                {liveMaterials > 0 && (
+                                    <tr className="border-t border-slate-700/40">
+                                        <td className="px-4 py-2 text-slate-300">
+                                            {fetchedItems.length > 0 ? `${fetchedItems.map(i => `${i.quantity}x ${i.name}`).join(', ')} — ${durationLabel}` : 'Materiais'}
+                                        </td>
+                                        <td className="px-4 py-2 text-right font-semibold text-slate-100">{fmtMoney(liveMaterials)}</td>
+                                    </tr>
+                                )}
+                                {liveTransport > 0 && (
+                                    <tr className="border-t border-slate-700/40">
+                                        <td className="px-4 py-2 text-slate-300">Transporte</td>
+                                        <td className="px-4 py-2 text-right font-semibold text-slate-100">{fmtMoney(liveTransport)}</td>
+                                    </tr>
+                                )}
+                                {liveDeposit > 0 && (
+                                    <tr className="border-t border-slate-700/40">
+                                        <td className="px-4 py-2 text-slate-300">Caução</td>
+                                        <td className="px-4 py-2 text-right font-semibold text-blue-400">{fmtMoney(liveDeposit)}</td>
+                                    </tr>
+                                )}
+                                {liveIvaMats > 0 && (
+                                    <tr className="border-t border-slate-700/40">
+                                        <td className="px-4 py-2 text-slate-400 text-xs">IVA Materiais</td>
+                                        <td className="px-4 py-2 text-right text-slate-400 text-xs">{fmtMoney(liveIvaMats)}</td>
+                                    </tr>
+                                )}
+                                {liveIvaTransp > 0 && (
+                                    <tr className="border-t border-slate-700/40">
+                                        <td className="px-4 py-2 text-slate-400 text-xs">IVA Transporte</td>
+                                        <td className="px-4 py-2 text-right text-slate-400 text-xs">{fmtMoney(liveIvaTransp)}</td>
+                                    </tr>
+                                )}
+                                <tr className="border-t-2 border-slate-600 bg-slate-900/40">
+                                    <td className="px-4 py-3 font-bold text-slate-100">Total</td>
+                                    <td className="px-4 py-3 text-right font-black text-amber-400 text-lg">{fmtMoney(liveTotal)}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        </div>
+                        {liveDeposit > 0 && (
+                            <p className="text-[10px] text-slate-500 italic px-4 pb-3">
+                                * Caução de {fmtMoney(liveDeposit)} a ser devolvida no final se não houver danos.{hasIva ? ' Valores acrescidos de IVA.' : ''}
+                            </p>
+                        )}
+                    </div>
+
+                    {/* Prolongamentos */}
+                    {liveHistory.length > 0 && (
+                        <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 p-4">
+                            <p className="text-[10px] font-bold text-amber-500 uppercase tracking-wider mb-2">Prolongamentos</p>
+                            <div className="space-y-2">
+                                {liveHistory.map((ext: any, idx: number) => (
+                                    <div key={idx} className="flex items-center justify-between text-xs bg-slate-900/60 rounded-lg px-3 py-2 border border-slate-700/30">
+                                        <div>
+                                            <span className="text-slate-300 font-semibold">
+                                                {ext.old_return_date ? `${fmtDateShort(ext.old_return_date)} → ${fmtDateShort(ext.new_return_date)}` : `Prolongamento #${idx + 1}`}
+                                            </span>
+                                            {ext.note && <p className="text-slate-500 mt-0.5">{ext.note}</p>}
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-bold text-emerald-400">+{fmtMoney(getExtValue(ext))}</span>
+                                            <button onClick={() => { setEditValue(getExtValue(ext)); setEditStartDate(ext.old_return_date?.split('T')[0] || ''); setEditReturnDate(ext.new_return_date?.split('T')[0] || ''); setEditReceivedBy(ext.received_by || 'Ricardo'); setEditNote(ext.note || ''); setEditingExt({ extIndex: idx }); }} className="text-slate-500 hover:text-amber-400 transition-colors"><Pencil className="w-3 h-3" /></button>
+                                            <button onClick={() => handleDeleteExt(idx)} className="text-slate-500 hover:text-red-400 transition-colors"><X className="w-3 h-3" /></button>
                                         </div>
                                     </div>
-                                </div>
+                                ))}
                             </div>
-                        ))}
-                    </div>
-                </div>
+                        </div>
+                    )}
 
-                {/* Observacoes e Botão Imprimir */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 items-end">
-                    <div className="md:col-span-2">
-                        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1 flex items-center gap-1">
-                            <FileText className="h-2.5 w-2.5" /> Observações / Notas Internas
-                        </label>
+                    {/* Notas */}
+                    <div>
+                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Observações / Notas Internas</p>
                         <textarea
-                            className="w-full h-14 rounded-lg border border-slate-700 bg-slate-900/40 p-2 text-xs text-slate-50 focus:outline-none focus:ring-1 focus:ring-amber-500/50 resize-none placeholder:text-slate-600"
-                            placeholder="Notas sobre materiais, entrega, horários..."
+                            className="w-full h-16 rounded-lg border border-slate-700 bg-slate-800/40 p-2 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-amber-500/50 resize-none placeholder:text-slate-600"
+                            placeholder="Notas internas..."
                             value={notes}
-                            onChange={(e) => setNotes(e.target.value)}
+                            onChange={e => setNotes(e.target.value)}
                         />
                     </div>
-                    
-                    <div className="md:col-span-3">
-                        <Button 
-                        type="button" 
-                        variant="outline" 
-                        className="h-14 border-amber-500/30 bg-amber-500/5 text-amber-500 hover:bg-amber-500/10 font-bold text-xs flex flex-col gap-1 items-center justify-center transition-all hover:border-amber-500/50" 
-                        onClick={() => printRentalContractHTML(rental)}
-                    >
-                        <FileText className="w-4 h-4" /> 
-                        <span>IMPRIMIR CONTRATO</span>
+                </div>
+
+                {/* Footer Ações */}
+                <div className="flex flex-wrap items-center gap-2 px-5 py-4 border-t border-slate-800 bg-slate-900/50 rounded-b-2xl">
+                    <Button type="button" variant="ghost" className="h-8 px-3 text-xs text-amber-400 border border-amber-500/20 hover:bg-amber-500/10"
+                        onClick={() => printRentalContractHTML(rental, fetchedItems)}>
+                        <Printer className="w-3.5 h-3.5 mr-1.5" /> Imprimir
                     </Button>
+                    {onEdit && (
+                        <Button type="button" variant="ghost" className="h-8 px-3 text-xs text-slate-300 border border-slate-700 hover:bg-slate-800"
+                            onClick={() => { onEdit(rental); onClose(); }}>
+                            <Edit2 className="w-3.5 h-3.5 mr-1.5" /> Editar
+                        </Button>
+                    )}
+                    {onDelete && (
+                        <Button type="button" variant="ghost" className="h-8 px-3 text-xs text-red-400 border border-red-500/20 hover:bg-red-500/10"
+                            onClick={() => { if (window.confirm('Apagar agendamento?')) { onDelete(rental.id); onClose(); } }}>
+                            <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Eliminar
+                        </Button>
+                    )}
+                    <Button type="button" variant="ghost" className="h-8 px-3 text-xs text-amber-400 border border-amber-500/20 hover:bg-amber-500/10"
+                        onClick={() => setIsProlongModalOpen(true)}>
+                        <CalendarPlus className="w-3.5 h-3.5 mr-1.5" /> Prolongar
+                    </Button>
+                    <div className="flex gap-2 ml-auto">
+                        <Button type="button" variant="outline" className="h-8 px-4 text-xs border-slate-700" onClick={onClose}>Fechar</Button>
+                        <Button type="button" className="h-8 px-4 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-bold" onClick={handleSaveNotes}>Guardar</Button>
+                    </div>
                 </div>
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-800">
-                    <div className="flex gap-2">
-                        {onEdit && (
-                            <Button type="button" variant="ghost" className="h-9 px-3 text-amber-500 hover:bg-amber-500/10 text-xs font-semibold" onClick={() => { onClose(); onEdit(rental); }}>
-                                <Edit2 className="w-3.5 h-3.5 mr-1.5" /> Editar
-                            </Button>
-                        )}
-                        {onDelete && (
-                            <Button type="button" variant="ghost" className="h-9 px-3 text-red-500 hover:bg-red-500/10 text-xs font-semibold" onClick={() => {
-                                if (window.confirm("Apagar agendamento?")) {
-                                    onDelete(rental.id);
-                                    onClose();
-                                }
-                            }}>
-                                <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Eliminar
-                            </Button>
-                        )}
-                    </div>
-                    <Button 
-                        type="button" 
-                        variant="ghost" 
-                        className="h-9 px-3 text-amber-400 hover:bg-amber-500/10 text-xs font-bold border border-amber-500/20" 
-                        onClick={() => setIsProlongModalOpen(true)}
-                    >
-                        <CalendarPlus className="w-3.5 h-3.5 mr-1.5 text-amber-500" /> Prolongar Aluguer
-                    </Button>
-                    <div className="flex gap-2 ml-auto">
-                        <Button type="button" variant="outline" className="h-9 px-4 border-slate-700 bg-transparent text-slate-300 hover:bg-slate-800 text-xs" onClick={onClose}>
-                            Fechar
-                        </Button>
-                        <Button type="button" className="h-9 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs" onClick={handleSaveNotes}>
-                            Salvar Alterações
-                        </Button>
-                    </div>
-                </div>
+            <ProlongModal isOpen={isProlongModalOpen} onClose={() => setIsProlongModalOpen(false)} rental={rental} onConfirm={handleConfirmProlong} />
 
-            
-            <ProlongModal 
-                isOpen={isProlongModalOpen}
-                onClose={() => setIsProlongModalOpen(false)}
-                rental={rental}
-                onConfirm={handleConfirmProlong}
-            />
-
-            {/* Modal de Edição de Prolongamento */}
             {editingExt && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 p-4 animate-in fade-in">
                     <div className="w-full max-w-md rounded-2xl bg-slate-900 border border-amber-500/40 p-6 shadow-2xl">
-                        {/* Header */}
-                        <div className="flex items-center justify-between mb-6">
-                            <div>
-                                <h3 className="text-base font-black text-slate-50 flex items-center gap-2 uppercase tracking-tight">
-                                    <Pencil className="h-4 w-4 text-amber-500" />
-                                    Editar Prolongamento
-                                </h3>
-                                <p className="text-[10px] text-slate-500 mt-0.5">
-                                    {rental.customers?.full_name} • Prolongamento #{editingExt.extIndex + 1}
-                                </p>
-                            </div>
-                            <button onClick={() => setEditingExt(null)} className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/5 text-slate-400 hover:text-slate-200 transition-all">
-                                <X className="w-4 h-4" />
-                            </button>
+                        <div className="flex items-center justify-between mb-5">
+                            <h3 className="text-base font-black text-slate-50 flex items-center gap-2"><Pencil className="h-4 w-4 text-amber-500" /> Editar Prolongamento</h3>
+                            <button onClick={() => setEditingExt(null)} className="text-slate-400 hover:text-slate-200"><X className="w-4 h-4" /></button>
                         </div>
-
                         <div className="space-y-4">
-                            {/* Valor Base */}
                             <div>
-                                <label className="block text-[10px] font-bold text-emerald-400/80 uppercase tracking-widest mb-1">Valor Extra Materiais (€)</label>
-                                <Input
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    value={editValue}
-                                    onChange={e => setEditValue(parseFloat(e.target.value) || 0)}
-                                    className="bg-slate-950 border-emerald-500/20 text-lg font-black text-emerald-400 h-12"
-                                />
-                                <div className="flex gap-4 mt-1">
-                                    <p className="text-[9px] text-emerald-500/60">Proposta (80%): {(editValue * 0.8).toFixed(2)} €</p>
-                                    <p className="text-[9px] text-blue-500/60">Comissão (20%): {(editValue * 0.2).toFixed(2)} €</p>
-                                </div>
+                                <label className="block text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-1">Valor Extra (€)</label>
+                                <Input type="number" step="0.01" min="0" value={editValue} onChange={e => setEditValue(parseFloat(e.target.value) || 0)} className="bg-slate-950 border-emerald-500/20 text-lg font-black text-emerald-400 h-12" />
                             </div>
-
-                            {/* Datas de Início e Término */}
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-[10px] font-bold text-amber-400/80 uppercase tracking-widest mb-1">Data de Início</label>
-                                    <Input
-                                        type="date"
-                                        value={editStartDate}
-                                        onChange={e => setEditStartDate(e.target.value)}
-                                        className="bg-slate-950 border-slate-800 font-bold text-amber-400 h-11"
-                                    />
+                                    <label className="block text-[10px] font-bold text-amber-400 uppercase tracking-widest mb-1">Data Início</label>
+                                    <Input type="date" value={editStartDate} onChange={e => setEditStartDate(e.target.value)} className="bg-slate-950 border-slate-800 font-bold text-amber-400 h-11" />
                                 </div>
                                 <div>
-                                    <label className="block text-[10px] font-bold text-amber-400/80 uppercase tracking-widest mb-1">Data de Término</label>
-                                    <Input
-                                        type="date"
-                                        value={editReturnDate}
-                                        onChange={e => setEditReturnDate(e.target.value)}
-                                        className="bg-slate-950 border-slate-800 font-bold text-amber-400 h-11"
-                                    />
+                                    <label className="block text-[10px] font-bold text-amber-400 uppercase tracking-widest mb-1">Data Término</label>
+                                    <Input type="date" value={editReturnDate} onChange={e => setEditReturnDate(e.target.value)} className="bg-slate-950 border-slate-800 font-bold text-amber-400 h-11" />
                                 </div>
                             </div>
-
-                            {/* Recebido Por */}
                             <div>
                                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Recebido Por</label>
-                                <select
-                                    value={editReceivedBy}
-                                    onChange={e => setEditReceivedBy(e.target.value)}
-                                    className="w-full h-10 px-3 bg-slate-950 border border-slate-800 text-sm text-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-amber-500/30"
-                                >
+                                <select value={editReceivedBy} onChange={e => setEditReceivedBy(e.target.value)} className="w-full h-10 px-3 bg-slate-950 border border-slate-800 text-sm text-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-amber-500/30">
                                     <option value="Ricardo">Ricardo</option>
                                     <option value="Gabriel">Gabriel</option>
                                 </select>
                             </div>
-
-                            {/* Notas */}
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Notas Internas</label>
-                                <textarea
-                                    value={editNote}
-                                    onChange={e => setEditNote(e.target.value)}
-                                    rows={2}
-                                    className="w-full rounded-lg border border-slate-800 bg-slate-950 p-3 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-amber-500/30 resize-none placeholder:text-slate-700"
-                                    placeholder="Observações do prolongamento..."
-                                />
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Notas</label>
+                                <textarea value={editNote} onChange={e => setEditNote(e.target.value)} rows={2} className="w-full rounded-lg border border-slate-800 bg-slate-950 p-3 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-amber-500/30 resize-none placeholder:text-slate-700" placeholder="Observações..." />
                             </div>
                         </div>
-
-                        {/* Acções */}
                         <div className="flex gap-3 pt-5 border-t border-slate-800 mt-5">
-                            <Button
-                                type="button"
-                                variant="outline"
-                                className="flex-1 h-11 border-slate-700 text-slate-400 hover:bg-slate-800 text-xs"
-                                onClick={() => setEditingExt(null)}
-                                disabled={isSavingExt}
-                            >
-                                Cancelar
-                            </Button>
-                            <Button
-                                type="button"
-                                className="flex-[2] h-11 bg-amber-500 hover:bg-amber-600 text-slate-900 font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-amber-500/10"
-                                onClick={handleSaveExt}
-                                disabled={isSavingExt}
-                            >
-                                <Save className="w-4 h-4" />
-                                {isSavingExt ? 'A Guardar...' : 'Guardar Alterações'}
+                            <Button type="button" variant="outline" className="flex-1 h-11 border-slate-700 text-slate-400 text-xs" onClick={() => setEditingExt(null)} disabled={isSavingExt}>Cancelar</Button>
+                            <Button type="button" className="flex-[2] h-11 bg-amber-500 hover:bg-amber-600 text-slate-900 font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2" onClick={handleSaveExt} disabled={isSavingExt}>
+                                <Save className="w-4 h-4" /> {isSavingExt ? 'A Guardar...' : 'Guardar'}
                             </Button>
                         </div>
                     </div>
                 </div>
             )}
         </div>
-    </div>
     );
 }

@@ -122,8 +122,17 @@ export default function Inventory() {
                         ) : (
                             filteredProducts.map(product => {
                                 const rentedQuantity = activeRentals.reduce((total, rental) => {
-                                    const item = rental.items?.find((i: any) => i.product_id === product.id);
-                                    return total + (item ? item.quantity : 0);
+                                    // Apenas conta como "alugado" (fora do armazém) se a data de levantamento já chegou
+                                    const pickupDate = new Date(rental.pickup_date);
+                                    pickupDate.setHours(0, 0, 0, 0);
+                                    const today = new Date();
+                                    today.setHours(23, 59, 59, 999);
+
+                                    if (pickupDate <= today) {
+                                        const item = rental.items?.find((i: any) => i.product_id === product.id);
+                                        return total + (item ? item.quantity : 0);
+                                    }
+                                    return total;
                                 }, 0);
                                 const available = product.stock_total - rentedQuantity;
                                 const isLowStock = available <= (product.stock_total * 0.2); // Alerta se =< 20%

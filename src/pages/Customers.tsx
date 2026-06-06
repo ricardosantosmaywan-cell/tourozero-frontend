@@ -21,7 +21,8 @@ export default function Customers() {
     const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
     const [selectedProfile, setSelectedProfile] = useState<Customer | null>(null);
     const [activeTab, setActiveTab] = useState<'details' | 'history'>('details');
-    const [rotation, setRotation] = useState<number>(0);
+    const [rotationFront, setRotationFront] = useState<number>(0);
+    const [rotationBack, setRotationBack] = useState<number>(0);
 
     // Mock History State (Global for simulation)
     const [mockRentalsDataset] = useState([
@@ -57,7 +58,8 @@ export default function Customers() {
     }
 
     function openProfileModal(customer: Customer) {
-        setRotation(0);
+        setRotationFront(0);
+        setRotationBack(0);
         setSelectedProfile(customer);
         setActiveTab('details');
         setIsProfileModalOpen(true);
@@ -204,7 +206,7 @@ export default function Customers() {
                                     <div className="grid grid-cols-2 gap-6">
                                         <div className="space-y-1">
                                             <p className="text-sm font-medium text-slate-500">Email</p>
-                                            <p className="text-base text-slate-50">{selectedProfile.email}</p>
+                                            <p className="text-base text-slate-50">{selectedProfile.email || '--'}</p>
                                         </div>
                                         <div className="space-y-1">
                                             <p className="text-sm font-medium text-slate-500">Telefone / WhatsApp</p>
@@ -216,42 +218,99 @@ export default function Customers() {
                                         </div>
                                         <div className="space-y-1">
                                             <p className="text-sm font-medium text-slate-500">Morada</p>
-                                            <p className="text-base text-slate-50">{selectedProfile.address}</p>
+                                            <p className="text-base text-slate-50">{selectedProfile.address || '--'}</p>
+                                        </div>
+                                        <div className="space-y-1 col-span-2">
+                                            <p className="text-sm font-medium text-slate-500">Morada(s) da Obra</p>
+                                            {selectedProfile.work_address
+                                                ? selectedProfile.work_address.split(' | ').map((addr, idx) => (
+                                                    <p key={idx} className="text-base text-slate-50">
+                                                        {selectedProfile.work_address!.split(' | ').length > 1 && (
+                                                            <span className="text-xs text-slate-500 mr-2">{idx + 1}.</span>
+                                                        )}
+                                                        {addr}
+                                                    </p>
+                                                ))
+                                                : <p className="text-base text-slate-50">--</p>
+                                            }
                                         </div>
                                     </div>
 
-                                    {selectedProfile.document_photo_url && (
-                                        <div className="pt-4 border-t border-slate-800 space-y-3">
-                                            <div className="flex items-center justify-between">
-                                                <p className="text-sm font-medium text-slate-500">Foto do Documento</p>
-                                                <div className="flex items-center gap-2">
-                                                    <Button 
-                                                        variant="outline" 
-                                                        size="sm" 
-                                                        className="text-amber-500 border-amber-500/30 hover:bg-amber-500/10 h-8"
-                                                        onClick={() => setRotation(r => r + 90)}
-                                                    >
-                                                        <RotateCw className="w-4 h-4 mr-1.5" /> Girar 90°
-                                                    </Button>
-                                                    <a 
-                                                        href={selectedProfile.document_photo_url} 
-                                                        target="_blank" 
-                                                        rel="noopener noreferrer"
-                                                    >
-                                                        <Button variant="outline" size="sm" className="text-blue-400 border-blue-500/30 hover:bg-blue-500/10 h-8">
-                                                            <ExternalLink className="w-4 h-4 mr-1.5" />
-                                                            Abrir Nova Aba
-                                                        </Button>
-                                                    </a>
-                                                </div>
-                                            </div>
-                                            <div className="rounded-lg overflow-hidden border border-slate-700 bg-black flex justify-center items-center p-2 min-h-[300px]">
-                                                <img 
-                                                    src={selectedProfile.document_photo_url} 
-                                                    alt="Documento do Cliente" 
-                                                    className="w-full h-auto max-h-[400px] object-contain rounded transition-transform duration-300"
-                                                    style={{ maxWidth: '100%', transform: `rotate(${rotation}deg)` }}
-                                                />
+                                    {(selectedProfile.document_photo_url || selectedProfile.document_photo_back_url) && (
+                                        <div className="pt-4 border-t border-slate-800 space-y-6">
+                                            <p className="text-sm font-medium text-slate-500">Fotos dos Documentos</p>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                {/* Frente */}
+                                                {selectedProfile.document_photo_url && (
+                                                    <div className="space-y-3 bg-slate-950/20 p-4 border border-slate-800 rounded-xl">
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Frente do Documento</span>
+                                                            <div className="flex items-center gap-2">
+                                                                <Button 
+                                                                    variant="outline" 
+                                                                    size="sm" 
+                                                                    className="text-amber-500 border-amber-500/30 hover:bg-amber-500/10 h-7 text-xs px-2"
+                                                                    onClick={() => setRotationFront(r => r + 90)}
+                                                                >
+                                                                    <RotateCw className="w-3.5 h-3.5 mr-1" /> Girar 90°
+                                                                </Button>
+                                                                <a 
+                                                                    href={selectedProfile.document_photo_url} 
+                                                                    target="_blank" 
+                                                                    rel="noopener noreferrer"
+                                                                >
+                                                                    <Button variant="outline" size="sm" className="text-blue-400 border-blue-500/30 hover:bg-blue-500/10 h-7 text-xs px-2">
+                                                                        <ExternalLink className="w-3.5 h-3.5" />
+                                                                    </Button>
+                                                                </a>
+                                                            </div>
+                                                        </div>
+                                                        <div className="rounded-lg overflow-hidden border border-slate-800 bg-black flex justify-center items-center p-2 min-h-[220px]">
+                                                            <img 
+                                                                src={selectedProfile.document_photo_url} 
+                                                                alt="Frente do Documento" 
+                                                                className="w-full h-auto max-h-[300px] object-contain rounded transition-transform duration-300"
+                                                                style={{ maxWidth: '100%', transform: `rotate(${rotationFront}deg)` }}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* Verso */}
+                                                {selectedProfile.document_photo_back_url && (
+                                                    <div className="space-y-3 bg-slate-950/20 p-4 border border-slate-800 rounded-xl">
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Verso do Documento</span>
+                                                            <div className="flex items-center gap-2">
+                                                                <Button 
+                                                                    variant="outline" 
+                                                                    size="sm" 
+                                                                    className="text-amber-500 border-amber-500/30 hover:bg-amber-500/10 h-7 text-xs px-2"
+                                                                    onClick={() => setRotationBack(r => r + 90)}
+                                                                >
+                                                                    <RotateCw className="w-3.5 h-3.5 mr-1" /> Girar 90°
+                                                                </Button>
+                                                                <a 
+                                                                    href={selectedProfile.document_photo_back_url} 
+                                                                    target="_blank" 
+                                                                    rel="noopener noreferrer"
+                                                                >
+                                                                    <Button variant="outline" size="sm" className="text-blue-400 border-blue-500/30 hover:bg-blue-500/10 h-7 text-xs px-2">
+                                                                        <ExternalLink className="w-3.5 h-3.5" />
+                                                                    </Button>
+                                                                </a>
+                                                            </div>
+                                                        </div>
+                                                        <div className="rounded-lg overflow-hidden border border-slate-800 bg-black flex justify-center items-center p-2 min-h-[220px]">
+                                                            <img 
+                                                                src={selectedProfile.document_photo_back_url} 
+                                                                alt="Verso do Documento" 
+                                                                className="w-full h-auto max-h-[300px] object-contain rounded transition-transform duration-300"
+                                                                style={{ maxWidth: '100%', transform: `rotate(${rotationBack}deg)` }}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     )}

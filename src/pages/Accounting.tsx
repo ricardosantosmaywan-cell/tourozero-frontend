@@ -310,7 +310,7 @@ export default function Accounting() {
             `}</style>
             {/* Header / Printing */}
             <div className="hidden print:block mb-8 text-black">
-                <h1 className="text-3xl font-bold mb-2">Relatório Tourozero - {view === 'partnership' ? 'Parceria' : 'Caixa'}</h1>
+                <h1 className="text-3xl font-bold mb-2">Relatório Enredo Janota Unp Lda - {view === 'partnership' ? 'Parceria' : 'Caixa'}</h1>
                 <p className="text-sm">Período: {startDate} até {endDate}</p>
                 <p className="text-sm italic">Gerado em: {new Date().toLocaleString('pt-BR')}</p>
             </div>

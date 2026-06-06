@@ -14,6 +14,8 @@ export interface Customer {
     address?: string | null;
     document_id?: string | null;
     document_photo_url?: string | null;
+    document_photo_back_url?: string | null;
+    work_address?: string | null;
     created_at?: string;
 }
 
@@ -38,7 +40,7 @@ export interface RentalItem {
 export interface Rental {
     id: string;
     customer_id: string;
-    customers: { full_name: string; phone: string; email: string; tax_id: string }; // From table join
+    customers: { full_name: string; phone: string; email: string; tax_id: string; work_address?: string | null }; // From table join
     customer_phone?: string;
     pickup_date: string;
     return_date: string;
@@ -70,12 +72,44 @@ export function useGlobalCustomers() {
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [loading, setLoading] = useState(true);
 
+    function mapSingleCustomer(c: any): Customer {
+        if (!c) return c;
+        let cleanAddress = c.address || '';
+        let extractedWorkAddress = c.work_address || '';
+
+        // Fallback para morada da obra codificada no address
+        if (!extractedWorkAddress && cleanAddress.includes(' [OBRA: ')) {
+            const parts = cleanAddress.split(' [OBRA: ');
+            cleanAddress = parts[0];
+            extractedWorkAddress = parts[1].replace(/\]$/, '');
+        }
+
+        let cleanFrontUrl = c.document_photo_url || '';
+        let extractedBackUrl = c.document_photo_back_url || '';
+
+        // Fallback para foto do verso codificada no document_photo_url
+        if (!extractedBackUrl && cleanFrontUrl.includes(',')) {
+            const parts = cleanFrontUrl.split(',');
+            cleanFrontUrl = parts[0];
+            extractedBackUrl = parts[1];
+        }
+
+        return {
+            ...c,
+            address: cleanAddress,
+            work_address: extractedWorkAddress,
+            document_photo_url: cleanFrontUrl,
+            document_photo_back_url: extractedBackUrl
+        };
+    }
+
     async function fetchCustomers() {
         await Promise.resolve();
         setLoading(true);
         const { data, error } = await supabase.from('customers').select('*').order('created_at', { ascending: false });
         if (!error && data) {
-            setCustomers(data as Customer[]);
+            const mapped = data.map((c: any) => mapSingleCustomer(c));
+            setCustomers(mapped);
         }
         setLoading(false);
     }
@@ -86,23 +120,51 @@ export function useGlobalCustomers() {
     }, []);
 
     async function addCustomer(newCustomer: Omit<Customer, 'id'>) {
-        const payload = {
-            ...newCustomer,
+        const payload: any = {
+            full_name: newCustomer.full_name,
             phone: newCustomer.phone?.trim() ? newCustomer.phone : 'Não informado',
             email: newCustomer.email?.trim() ? newCustomer.email : null,
             address: newCustomer.address?.trim() ? newCustomer.address : null,
             document_id: newCustomer.document_id?.trim() ? newCustomer.document_id : null,
+            document_photo_url: newCustomer.document_photo_url || null,
+            document_photo_back_url: newCustomer.document_photo_back_url || null,
+            work_address: newCustomer.work_address?.trim() ? newCustomer.work_address : null,
         };
+
         const { data, error } = await supabase.from('customers').insert([payload]).select().single();
         if (!error && data) {
-            setCustomers(prev => [...prev, data as Customer].sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()));
-            return data;
+            const mappedData = mapSingleCustomer(data);
+            setCustomers(prev => [...prev, mappedData].sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()));
+            return mappedData;
         }
+
+        // Se der erro de colunas inexistentes no DB (PGRST204), realiza a inserção de fallback unificada
+        if (error && (error.code === 'PGRST204' || error.message.includes('document_photo_back_url') || error.message.includes('work_address'))) {
+            console.warn("Colunas específicas ausentes no DB. Executando inserção com fallback unificado.");
+            
+            const fallbackPayload: any = {
+                full_name: payload.full_name,
+                phone: payload.phone,
+                email: payload.email,
+                document_id: payload.document_id,
+                address: payload.work_address ? `${payload.address} [OBRA: ${payload.work_address}]` : payload.address,
+                document_photo_url: payload.document_photo_back_url ? `${payload.document_photo_url},${payload.document_photo_back_url}` : payload.document_photo_url
+            };
+
+            const { data: fbData, error: fbError } = await supabase.from('customers').insert([fallbackPayload]).select().single();
+            if (!fbError && fbData) {
+                const mappedData = mapSingleCustomer(fbData);
+                setCustomers(prev => [...prev, mappedData].sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()));
+                return mappedData;
+            }
+            if (fbError) throw new Error(fbError.message);
+        }
+
         if (error) throw new Error(error.message);
     }
 
     async function updateCustomer(id: string, updatedData: Partial<Customer>) {
-        const payload = { ...updatedData };
+        const payload: any = { ...updatedData };
         if (payload.phone !== undefined) {
             payload.phone = payload.phone?.trim() ? payload.phone : 'Não informado';
         }
@@ -115,12 +177,49 @@ export function useGlobalCustomers() {
         if (payload.document_id !== undefined) {
             payload.document_id = payload.document_id?.trim() ? payload.document_id : null;
         }
+        if (payload.work_address !== undefined) {
+            payload.work_address = payload.work_address?.trim() ? payload.work_address : null;
+        }
 
         const { data, error } = await supabase.from('customers').update(payload).eq('id', id).select().single();
         if (!error && data) {
-            setCustomers(prev => prev.map(c => c.id === id ? data as Customer : c).sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()));
-            return data;
+            const mappedData = mapSingleCustomer(data);
+            setCustomers(prev => prev.map(c => c.id === id ? mappedData : c).sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()));
+            return mappedData;
         }
+
+        // Se der erro de colunas inexistentes no DB (PGRST204), realiza a atualização de fallback unificada
+        if (error && (error.code === 'PGRST204' || error.message.includes('document_photo_back_url') || error.message.includes('work_address'))) {
+            console.warn("Colunas específicas ausentes no DB. Executando atualização com fallback unificado.");
+            
+            const currentCustomer = customers.find(c => c.id === id);
+            const finalAddress = payload.address !== undefined ? payload.address : (currentCustomer?.address || '');
+            const finalWorkAddress = payload.work_address !== undefined ? payload.work_address : (currentCustomer?.work_address || '');
+            const finalFrontUrl = payload.document_photo_url !== undefined ? payload.document_photo_url : (currentCustomer?.document_photo_url || '');
+            const finalBackUrl = payload.document_photo_back_url !== undefined ? payload.document_photo_back_url : (currentCustomer?.document_photo_back_url || '');
+
+            const fallbackPayload: any = {};
+            if (payload.full_name !== undefined) fallbackPayload.full_name = payload.full_name;
+            if (payload.phone !== undefined) fallbackPayload.phone = payload.phone;
+            if (payload.email !== undefined) fallbackPayload.email = payload.email;
+            if (payload.document_id !== undefined) fallbackPayload.document_id = payload.document_id;
+            
+            if (payload.address !== undefined || payload.work_address !== undefined) {
+                fallbackPayload.address = finalWorkAddress ? `${finalAddress} [OBRA: ${finalWorkAddress}]` : finalAddress;
+            }
+            if (payload.document_photo_url !== undefined || payload.document_photo_back_url !== undefined) {
+                fallbackPayload.document_photo_url = finalBackUrl ? `${finalFrontUrl},${finalBackUrl}` : finalFrontUrl;
+            }
+
+            const { data: fbData, error: fbError } = await supabase.from('customers').update(fallbackPayload).eq('id', id).select().single();
+            if (!fbError && fbData) {
+                const mappedData = mapSingleCustomer(fbData);
+                setCustomers(prev => prev.map(c => c.id === id ? mappedData : c).sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()));
+                return mappedData;
+            }
+            if (fbError) throw new Error(fbError.message);
+        }
+
         if (error) throw new Error(error.message);
     }
 
@@ -216,6 +315,17 @@ export function useGlobalRentals() {
     const [rentals, setRentals] = useState<Rental[]>([]);
     const [loading, setLoading] = useState(true);
 
+    function mapCustomerWorkAddress(c: any) {
+        if (!c) return c;
+        let cleanAddress = c.address || '';
+        let extractedWorkAddress = c.work_address || '';
+        if (!extractedWorkAddress && cleanAddress.includes(' [OBRA: ')) {
+            const parts = cleanAddress.split(' [OBRA: ');
+            extractedWorkAddress = parts[1]?.replace(/\]$/, '') || '';
+        }
+        return { ...c, work_address: extractedWorkAddress };
+    }
+
     async function fetchRentals() {
         await Promise.resolve();
         setLoading(true);
@@ -240,7 +350,7 @@ export function useGlobalRentals() {
                 return {
                     id: r.id,
                     customer_id: r.customer_id,
-                    customers: r.customers || { full_name: 'Desconhecido', phone: '', email: '', tax_id: '' },
+                    customers: r.customers ? mapCustomerWorkAddress(r.customers) : { full_name: 'Desconhecido', phone: '', email: '', tax_id: '', work_address: '' },
                     pickup_date: r.pickup_date,
                     return_date: r.return_date,
                     total_amount: total,
@@ -442,6 +552,38 @@ export function useGlobalRentals() {
 
     const updateRentalPartial = async (id: string, partialData: any) => {
         try {
+            // Se houver alteração de status no partialData, lidamos com a transição de stock
+            if (partialData.status !== undefined) {
+                const { data: oldRental } = await supabase.from('rentals').select('status').eq('id', id).single();
+                if (oldRental && oldRental.status !== partialData.status) {
+                    // Transição: De ativo para concluído ou cancelado -> devolve produtos ao stock
+                    if (oldRental.status === 'active' && (partialData.status === 'completed' || partialData.status === 'canceled')) {
+                        const { data: currentItems } = await supabase.from('rental_items').select('*').eq('rental_id', id);
+                        if (currentItems) {
+                            for (const item of currentItems) {
+                                const { data: p } = await supabase.from('products').select('available').eq('id', item.product_id).single();
+                                if (p) {
+                                    await supabase.from('products').update({ available: p.available + item.quantity }).eq('id', item.product_id);
+                                }
+                            }
+                        }
+                    }
+                    // Transição: De concluído ou cancelado para ativo -> retira produtos do stock
+                    else if ((oldRental.status === 'completed' || oldRental.status === 'canceled') && partialData.status === 'active') {
+                        const { data: currentItems } = await supabase.from('rental_items').select('*').eq('rental_id', id);
+                        if (currentItems) {
+                            for (const item of currentItems) {
+                                const { data: p } = await supabase.from('products').select('available').eq('id', item.product_id).single();
+                                if (p) {
+                                    const newAvailable = Math.max(0, p.available - item.quantity);
+                                    await supabase.from('products').update({ available: newAvailable }).eq('id', item.product_id);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             const { error } = await supabase.from('rentals').update(partialData).eq('id', id);
             if (error) throw new Error(error.message);
             await fetchRentals();

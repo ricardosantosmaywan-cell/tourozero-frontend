@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import { X, PlusCircle, Trash, CheckCircle2 } from 'lucide-react';
@@ -36,13 +36,25 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
     const [durationUnit, setDurationUnit] = useState<'dia' | 'semana'>('semana');
     const [paymentStatus, setPaymentStatus] = useState<'pending' | 'paid'>('pending');
     const [deliveryAddress, setDeliveryAddress] = useState('');
+    const [isCustomAddress, setIsCustomAddress] = useState(false);
     const [notes, setNotes] = useState('');
     const [receivedBy, setReceivedBy] = useState('Ricardo');
     const [extensionReason, setExtensionReason] = useState('');
     const [showSuccessToast, setShowSuccessToast] = useState(false);
+    const [extensionsHistory, setExtensionsHistory] = useState<any[]>([]);
 
     const [showCustomerForm, setShowCustomerForm] = useState(false);
     const [newCustomerData, setNewCustomerData] = useState<{ full_name: string, phone: string, address: string, tax_id: string, email: string, document_id: string }>({ full_name: '', phone: '', address: '', tax_id: '', email: '', document_id: '' });
+    const [showDropdown, setShowDropdown] = useState(false);
+    const searchRef = useRef<HTMLDivElement>(null);
+
+    const filteredCustomerSuggestions = nifSearch.trim().length >= 1
+        ? customers.filter(c =>
+            c.full_name?.toLowerCase().includes(nifSearch.toLowerCase()) ||
+            c.tax_id?.includes(nifSearch) ||
+            c.phone?.includes(nifSearch)
+          ).slice(0, 8)
+        : customers.slice(0, 8);
 
     function resetState() {
         setNifSearch('');
@@ -63,9 +75,11 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
         setDurationValue(1);
         setDurationUnit('semana');
         setDeliveryAddress('');
+        setIsCustomAddress(false);
         setNotes('');
         setReceivedBy('Ricardo');
         setExtensionReason('');
+        setExtensionsHistory([]);
     }
 
     useEffect(() => {
@@ -79,10 +93,18 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
                 setReturnDate(rentalToEdit.return_date);
                 setDurationValue(rentalToEdit.rental_duration_value || rentalToEdit.semanas || 1);
                 setDurationUnit(rentalToEdit.rental_duration_type || 'semana');
-                setDeliveryAddress(rentalToEdit.delivery_address || '');
+                const editAddr = rentalToEdit.delivery_address || '';
+                setDeliveryAddress(editAddr);
+                const clientAddrs = rentalToEdit.customers?.work_address ? rentalToEdit.customers.work_address.split(' | ').filter(Boolean) : [];
+                if (editAddr && clientAddrs.length > 1 && !clientAddrs.includes(editAddr)) {
+                    setIsCustomAddress(true);
+                } else {
+                    setIsCustomAddress(false);
+                }
                 setPaymentStatus(rentalToEdit.payment_status || 'pending');
                 setReceivedBy(rentalToEdit.received_by || 'Ricardo');
                 setNotes(rentalToEdit.observacoes || '');
+                setExtensionsHistory(rentalToEdit.extensions_history || []);
                 
                 // Preencher valores e itens iniciais vindos da prop
                 const propTransport = Number(rentalToEdit.transport_value || 0);
@@ -112,7 +134,7 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
                 try {
                     const { data: freshRental } = await supabase
                         .from('rentals')
-                        .select('transport_value, deposit_value, iva_materials, iva_transport, total_amount, observacoes, received_by')
+                        .select('transport_value, deposit_value, iva_materials, iva_transport, total_amount, observacoes, received_by, extensions_history')
                         .eq('id', rentalToEdit.id)
                         .single();
 
@@ -133,6 +155,7 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
                         setIvaTransport(transport > 0 ? Math.round((ivaTranspEuro / transport) * 100) : 0);
                         setNotes(freshRental.observacoes || '');
                         setReceivedBy(freshRental.received_by || 'Ricardo');
+                        setExtensionsHistory(freshRental.extensions_history || []);
                     }
 
                     const { data: freshItems } = await supabase
@@ -251,14 +274,14 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
             return;
         }
 
-        let customerToUse = selectedCustomer;
+        let customerToUse: Customer | null = selectedCustomer;
 
         if (showCustomerForm && !selectedCustomer) {
             if (!newCustomerData.full_name || !newCustomerData.tax_id) {
                 setFormError('Nome e NIF são obrigatórios.');
                 return;
             }
-            customerToUse = await addCustomer(newCustomerData as Omit<Customer, 'id'>);
+            customerToUse = (await addCustomer(newCustomerData as Omit<Customer, 'id'>)) || null;
         }
 
         if (!customerToUse) {
@@ -298,11 +321,11 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
                 price_unit: 0,
                 quantity: sp.quantity
             })),
-            extensions_history: rentalToEdit ? rentalToEdit.extensions_history : []
+            extensions_history: rentalToEdit ? extensionsHistory : []
         };
 
         if (rentalToEdit) {
-            const updatedExtensions = rentalToEdit.extensions_history ? [...rentalToEdit.extensions_history] : [];
+            const updatedExtensions = [...extensionsHistory];
             const oldValue = Number(rentalToEdit.total_amount || 0);
             const newValue = totalPayload;
             const oldDate = rentalToEdit.return_date;
@@ -374,14 +397,62 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
                         </h3>
                         
                         {!rentalToEdit && (
-                            <div className="flex gap-2 mb-3">
+                            <div className="relative mb-3" ref={searchRef}>
                                 <Input
-                                    placeholder="NIF do cliente..."
+                                    placeholder="Buscar por nome, NIF ou telefone..."
                                     className="h-8 text-xs"
                                     value={nifSearch}
-                                    onChange={(e) => setNifSearch(e.target.value)}
+                                    onChange={(e) => {
+                                        setNifSearch(e.target.value);
+                                        setShowDropdown(true);
+                                        setSelectedCustomer(null);
+                                        setShowCustomerForm(false);
+                                    }}
+                                    onFocus={() => setShowDropdown(true)}
+                                    onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
+                                    autoComplete="off"
                                 />
-                                <Button type="button" onClick={searchCustomer} variant="secondary" className="h-8 text-xs px-3">Buscar</Button>
+                                {showDropdown && (
+                                    <div className="absolute z-50 w-full mt-1 rounded-lg border border-slate-700 bg-slate-900 shadow-xl overflow-hidden">
+                                        {filteredCustomerSuggestions.length === 0 ? (
+                                            <div className="px-3 py-2 text-xs text-slate-500">Nenhum cliente encontrado.</div>
+                                        ) : (
+                                            filteredCustomerSuggestions.map(c => (
+                                                <div
+                                                    key={c.id}
+                                                    className="flex flex-col px-3 py-2 cursor-pointer hover:bg-slate-800 transition-colors border-b border-slate-800 last:border-0"
+                                                    onMouseDown={() => {
+                                                        setSelectedCustomer(c);
+                                                        setNifSearch(c.full_name);
+                                                        setShowDropdown(false);
+                                                        setShowCustomerForm(false);
+                                                        setIsCustomAddress(false);
+                                                        // Preencher morada da obra automaticamente
+                                                        if (c.work_address) {
+                                                            const addrs = c.work_address.split(' | ').filter(Boolean);
+                                                            setDeliveryAddress(addrs[0] || '');
+                                                        } else {
+                                                            setDeliveryAddress('');
+                                                        }
+                                                    }}
+                                                >
+                                                    <span className="text-xs font-semibold text-slate-200">{c.full_name}</span>
+                                                    <span className="text-[10px] text-slate-500">NIF: {c.tax_id} · {c.phone}</span>
+                                                </div>
+                                            ))
+                                        )}
+                                        <div
+                                            className="px-3 py-2 cursor-pointer hover:bg-amber-500/10 transition-colors border-t border-slate-700 text-xs text-amber-400 font-semibold"
+                                            onMouseDown={() => {
+                                                setShowCustomerForm(true);
+                                                setSelectedCustomer(null);
+                                                setShowDropdown(false);
+                                            }}
+                                        >
+                                            + Criar novo cliente
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
 
@@ -412,13 +483,48 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-1">
                             <div className="md:col-span-2">
                                 <label className="block text-[9px] font-bold text-slate-500 uppercase mb-0.5">Endereço da Obra</label>
-                                <Input
-                                    type="text"
-                                    placeholder="Rua, número, localidade..."
-                                    className="h-8 text-xs"
-                                    value={deliveryAddress}
-                                    onChange={e => setDeliveryAddress(e.target.value)}
-                                />
+                                {selectedCustomer?.work_address && selectedCustomer.work_address.split(' | ').filter(Boolean).length > 1 ? (
+                                    <select
+                                        className="w-full h-8 rounded-md border border-slate-800 bg-slate-900 px-2 text-xs text-slate-50 focus:ring-1 focus:ring-amber-500"
+                                        value={isCustomAddress ? '__custom__' : deliveryAddress}
+                                        onChange={e => {
+                                            if (e.target.value === '__custom__') {
+                                                setIsCustomAddress(true);
+                                                setDeliveryAddress('');
+                                            } else {
+                                                setIsCustomAddress(false);
+                                                setDeliveryAddress(e.target.value);
+                                            }
+                                        }}
+                                    >
+                                        <option value="">Selecionar morada da obra...</option>
+                                        {selectedCustomer.work_address.split(' | ').filter(Boolean).map((addr, idx) => (
+                                            <option key={idx} value={addr}>{addr}</option>
+                                        ))}
+                                        <option value="__custom__">Outra morada...</option>
+                                    </select>
+                                ) : (
+                                    <Input
+                                        type="text"
+                                        placeholder="Rua, número, localidade..."
+                                        className="h-8 text-xs"
+                                        value={deliveryAddress}
+                                        onChange={e => {
+                                            setIsCustomAddress(false);
+                                            setDeliveryAddress(e.target.value);
+                                        }}
+                                    />
+                                )}
+                                {selectedCustomer?.work_address && selectedCustomer.work_address.split(' | ').filter(Boolean).length > 1 && isCustomAddress && (
+                                    <Input
+                                        type="text"
+                                        placeholder="Escrever outra morada..."
+                                        className="h-8 text-xs mt-1"
+                                        value={deliveryAddress}
+                                        onChange={e => setDeliveryAddress(e.target.value)}
+                                        autoFocus
+                                    />
+                                )}
                             </div>
                             <div className="grid grid-cols-3 gap-2 md:col-span-2">
                                 <div>

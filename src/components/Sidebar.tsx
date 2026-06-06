@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Home, Users, CalendarDays, Package, PieChart, LogOut, RefreshCw } from 'lucide-react';
+import { Home, Users, CalendarDays, Package, LogOut, RefreshCw } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -50,7 +50,6 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
         { icon: Users, label: 'Clientes', path: '/customers' },
         { icon: CalendarDays, label: 'Agendamentos', path: '/rentals' },
         { icon: Package, label: 'Estoque', path: '/inventory' },
-        { icon: PieChart, label: 'Contabilidade', path: '/accounting' },
     ];
 
     return (
@@ -60,7 +59,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
         )}>
             <div className="h-16 hidden md:flex items-center px-6 border-b border-slate-800 shrink-0">
                 <h1 className="text-xl font-bold flex items-center gap-2">
-                    <span className="text-amber-500">Touro</span>zero
+                    <span className="text-amber-500">Enredo</span> Janota
                 </h1>
             </div>
 
@@ -207,7 +206,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
                 </button>
                 <div className="mt-4 pt-3 border-t border-slate-800/50 text-center">
                     <p className="text-xs text-slate-400/60 tracking-wide">
-                        &copy; 2026 Tourozero Engine | Powered by <span className="font-bold text-slate-300/80">Maywan</span>
+                        &copy; 2026 Enredo Janota Unp Lda | Powered by <span className="font-bold text-slate-300/80">Maywan</span>
                     </p>
                 </div>
             </div>

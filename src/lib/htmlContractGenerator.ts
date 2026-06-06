@@ -16,7 +16,13 @@ export function printRentalContractHTML(rental: Rental) {
     const ivaTransp = Number(rental.iva_transport || 0).toFixed(2);
     const totalAmount = Number(rental.total_amount || 0).toFixed(2);
     const materialsValue = (Number(rental.total_amount || 0) - Number(rental.deposit_value || 0) - Number(rental.transport_value || 0) - Number(rental.iva_materials || 0) - Number(rental.iva_transport || 0)).toFixed(2);
-    const deliveryAddress = rental.delivery_address || 'Recolha nas instalações';
+    const rawWorkAddress = (rental.customers as any)?.work_address || '';
+    const workAddress = rawWorkAddress
+        ? rawWorkAddress.split(' | ').filter(Boolean)[0]
+        : '';
+    const deliveryAddress = rental.delivery_address || workAddress || 'Recolha nas instalações';
+
+    const hasDelivery = !!(rental.delivery_address || workAddress);
     
     // Período de Aluguer Formatado
     const durationVal = rental.rental_duration_value || rental.semanas || 1;
@@ -194,7 +200,7 @@ body {
 <!-- ===================== PÁGINA 1: RECIBO ===================== -->
 <div class="page page-break">
   <div class="recibo-header">
-    <h1>Tourozero</h1>
+    <h1>Enredo Janota Unp Lda</h1>
     <div class="doc-type">CONTRATO DE ALUGUER</div>
   </div>
 
@@ -206,7 +212,7 @@ body {
       <div><span class="label">NIF:</span> ${customerNif}</div>
       <div><span class="label">Email:</span> ${customerEmail}</div>
     </div>
-    <div style="margin-top:8px;"><span class="label">Morada de Entrega:</span> ${deliveryAddress}</div>
+    <div style="margin-top:8px;padding:8px 10px;background:#f5f5f5;border-left:3px solid #000;"><span class="label">Morada da Obra / Entrega:</span> ${deliveryAddress}</div>
   </div>
 
   <div class="client-block">
@@ -241,7 +247,7 @@ body {
   <p style="margin-top:30px;font-size:9pt;color:#666;">Documento emitido em: ${now}</p>
 
   <div style="display:flex;justify-content:space-between;margin-top:40px;">
-    <div class="recibo-sig">Tourozero</div>
+    <div class="recibo-sig">Enredo Janota Unp Lda</div>
     <div class="recibo-sig">O(A) Cliente: ${customerName}</div>
   </div>
 </div>
@@ -273,7 +279,7 @@ body {
   O Primeiro Outorgante cede ao Segundo Outorgante, a título de aluguer, os equipamentos detalhados neste documento, garantindo o seu bom estado de funcionamento no momento da entrega.</p>
 
   <p><strong>CLÁUSULA SEGUNDA (Prazo):</strong><br>
-  O aluguer tem início na data de recolha (${startDate}) e término na data prevista de entrega (${endDate}), correspondendo a um período de <strong>${durationText}</strong>, podendo ser prorrogado mediante acordo prévio e pagamento antecipado.</p>
+  O aluguer tem início na data de recolha (${startDate}) e término na data prevista de entrega (${endDate}), correspondendo a um período de <strong>${durationText}</strong>, podendo ser prorrogado mediante acordo prévio e pagamento antecipado.${hasDelivery ? ` A entrega e recolha do equipamento será efetuada na morada: <strong>${deliveryAddress}</strong>.` : ' A recolha e devolução do equipamento será efetuada nas instalações da Primeira Outorgante.'}</p>
 
   <p><strong>CLÁUSULA TERCEIRA:</strong><br>
   UM – Cedência de ${quantitySets} Conjuntos (2 laterais, 1 cruzeta, 1 travão, 1 prancha).<br>

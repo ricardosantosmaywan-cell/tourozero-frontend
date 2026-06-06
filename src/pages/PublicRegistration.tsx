@@ -10,9 +10,11 @@ export default function PublicRegistration() {
         phone: '',
         tax_id: '',
         document_id: '',
-        address: ''
+        address: '',
+        work_address: ''
     });
-    const [file, setFile] = useState<File | null>(null);
+    const [fileFront, setFileFront] = useState<File | null>(null);
+    const [fileBack, setFileBack] = useState<File | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -24,9 +26,15 @@ export default function PublicRegistration() {
         }));
     };
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileFrontChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
-            setFile(e.target.files[0]);
+            setFileFront(e.target.files[0]);
+        }
+    };
+
+    const handleFileBackChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files.length > 0) {
+            setFileBack(e.target.files[0]);
         }
     };
 
@@ -34,8 +42,8 @@ export default function PublicRegistration() {
         e.preventDefault();
         setError(null);
 
-        if (!formData.full_name || !formData.phone || !formData.tax_id || !formData.document_id || !formData.address || !file) {
-            setError('Todos os campos são obrigatórios, incluindo a foto do documento.');
+        if (!formData.full_name || !formData.phone || !formData.tax_id || !formData.document_id || !formData.address || !formData.work_address || !fileFront || !fileBack) {
+            setError('Todos os campos são obrigatórios, incluindo as fotos da frente e do verso do documento.');
             return;
         }
 
@@ -52,25 +60,31 @@ export default function PublicRegistration() {
                 console.warn('Could not check or create bucket, assuming it exists:', e);
             }
 
-            // 1. Upload File to Supabase Storage
-            const fileExt = file.name.split('.').pop();
-            const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-            const filePath = `public/uploads/docs/${fileName}`;
+            // Helper function to upload file
+            const uploadFile = async (fileToUpload: File, prefix: string) => {
+                const fileExt = fileToUpload.name.split('.').pop();
+                const fileName = `${Date.now()}_${prefix}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+                const filePath = `public/uploads/docs/${fileName}`;
 
-            // Assumes a 'documents' bucket exists and is publicly accessible or allows anon uploads
-            const { error: uploadError } = await supabase.storage
-                .from('documents')
-                .upload(filePath, file);
+                const { error: uploadError } = await supabase.storage
+                    .from('documents')
+                    .upload(filePath, fileToUpload);
 
-            if (uploadError) {
-                console.error('Upload error:', uploadError);
-                throw new Error('Falha ao fazer upload do documento. Tente novamente.');
-            }
+                if (uploadError) {
+                    console.error(`${prefix} upload error:`, uploadError);
+                    throw new Error(`Falha ao fazer upload do documento (${prefix}). Tente novamente.`);
+                }
 
-            // Get public URL
-            const { data: { publicUrl } } = supabase.storage
-                .from('documents')
-                .getPublicUrl(filePath);
+                const { data: { publicUrl } } = supabase.storage
+                    .from('documents')
+                    .getPublicUrl(filePath);
+
+                return publicUrl;
+            };
+
+            // 1. Upload Files to Supabase Storage
+            const frontUrl = await uploadFile(fileFront, 'front');
+            const backUrl = await uploadFile(fileBack, 'back');
 
             // 2. Insert into Database
             const { error: insertError } = await supabase
@@ -81,15 +95,43 @@ export default function PublicRegistration() {
                     tax_id: formData.tax_id,
                     document_id: formData.document_id,
                     address: formData.address,
-                    document_photo_url: publicUrl
+                    work_address: formData.work_address,
+                    document_photo_url: frontUrl,
+                    document_photo_back_url: backUrl
                 }]);
 
             if (insertError) {
-                console.error('Insert error:', insertError);
-                if (insertError.code === '23505' || insertError.message.includes('unique constraint') || insertError.message.includes('tax_id')) {
-                    throw new Error('Já existe um cliente cadastrado com este NIF (Contribuinte).');
+                // Se der erro de colunas inexistentes no DB (PGRST204), realiza a inserção de fallback unificada
+                if (insertError.code === 'PGRST204' || insertError.message.includes('document_photo_back_url') || insertError.message.includes('work_address')) {
+                    console.warn("Colunas específicas ausentes no DB. Executando inserção com fallback unificado.");
+                    
+                    const fallbackPayload = {
+                        full_name: formData.full_name,
+                        phone: formData.phone,
+                        tax_id: formData.tax_id,
+                        document_id: formData.document_id,
+                        address: formData.work_address ? `${formData.address} [OBRA: ${formData.work_address}]` : formData.address,
+                        document_photo_url: backUrl ? `${frontUrl},${backUrl}` : frontUrl
+                    };
+
+                    const { error: fbError } = await supabase
+                        .from('customers')
+                        .insert([fallbackPayload]);
+
+                    if (fbError) {
+                        console.error('Insert error on fallback:', fbError);
+                        if (fbError.code === '23505' || fbError.message.includes('unique constraint') || fbError.message.includes('tax_id')) {
+                            throw new Error('Já existe um cliente cadastrado com este NIF (Contribuinte).');
+                        }
+                        throw new Error('Erro ao salvar os dados. Tente novamente.');
+                    }
+                } else {
+                    console.error('Insert error:', insertError);
+                    if (insertError.code === '23505' || insertError.message.includes('unique constraint') || insertError.message.includes('tax_id')) {
+                        throw new Error('Já existe um cliente cadastrado com este NIF (Contribuinte).');
+                    }
+                    throw new Error('Erro ao salvar os dados. Tente novamente.');
                 }
-                throw new Error('Erro ao salvar os dados. Tente novamente.');
             }
 
             setIsSuccess(true);
@@ -200,42 +242,85 @@ export default function PublicRegistration() {
                                         className="bg-slate-950/50"
                                     />
                                 </div>
+                                <div className="space-y-1.5 sm:col-span-2">
+                                    <label className="text-sm font-medium text-slate-300">Morada da Obra *</label>
+                                    <Input
+                                        name="work_address"
+                                        placeholder="Local onde os andaimes serão instalados (Rua, Número, Código Postal, Cidade)"
+                                        value={formData.work_address}
+                                        onChange={handleChange}
+                                        required
+                                        className="bg-slate-950/50"
+                                    />
+                                </div>
                             </div>
                         </div>
 
                         <div className="space-y-4 pt-4">
                             <h3 className="text-lg font-semibold text-slate-200 border-b border-slate-800 pb-2">Documentação</h3>
                             
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="text-sm font-medium text-slate-300 block mb-1">Foto do C. Cidadão / Passaporte *</label>
-                                    <p className="text-xs text-amber-500 bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-md flex items-center gap-2">
-                                        <ShieldCheck className="w-4 h-4 shrink-0" />
-                                        Por favor, tire a foto com o telemóvel na horizontal (deitado) para capturar o documento inteiro.
-                                    </p>
+                            <div>
+                                <p className="text-xs text-amber-500 bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-md flex items-center gap-2 mb-4">
+                                    <ShieldCheck className="w-4 h-4 shrink-0" />
+                                    Por favor, tire a foto com o telemóvel na horizontal (deitado) para capturar o documento inteiro.
+                                </p>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                {/* Frente */}
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-slate-300 block">Frente do Documento (BI/CC) *</label>
+                                    <div className="flex items-center justify-center w-full">
+                                        <label htmlFor="dropzone-file-front" className="flex flex-col items-center justify-center w-full h-32 border-2 border-slate-700 border-dashed rounded-xl cursor-pointer bg-slate-900/40 hover:bg-slate-800/50 hover:border-amber-500/50 transition-colors">
+                                            <div className="flex flex-col items-center justify-center pt-5 pb-6 px-4 text-center">
+                                                <UploadCloud className="w-8 h-8 mb-2 text-slate-400" />
+                                                {fileFront ? (
+                                                    <p className="text-sm font-medium text-emerald-400 truncate max-w-full">{fileFront.name}</p>
+                                                ) : (
+                                                    <>
+                                                        <p className="mb-1 text-sm text-slate-400"><span className="font-semibold text-amber-500">Selecionar Frente</span></p>
+                                                        <p className="text-[10px] text-slate-500">PNG, JPG ou PDF (Máx. 5MB)</p>
+                                                    </>
+                                                )}
+                                            </div>
+                                            <input 
+                                                id="dropzone-file-front" 
+                                                type="file" 
+                                                accept="image/*,.pdf"
+                                                className="hidden" 
+                                                onChange={handleFileFrontChange}
+                                                required 
+                                            />
+                                        </label>
+                                    </div>
                                 </div>
-                                <div className="flex items-center justify-center w-full">
-                                    <label htmlFor="dropzone-file" className="flex flex-col items-center justify-center w-full h-32 border-2 border-slate-700 border-dashed rounded-xl cursor-pointer bg-slate-900/40 hover:bg-slate-800/50 hover:border-amber-500/50 transition-colors">
-                                        <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                                            <UploadCloud className="w-8 h-8 mb-2 text-slate-400" />
-                                            {file ? (
-                                                <p className="text-sm font-medium text-emerald-400">{file.name}</p>
-                                            ) : (
-                                                <>
-                                                    <p className="mb-2 text-sm text-slate-400"><span className="font-semibold text-amber-500">Clique para selecionar</span></p>
-                                                    <p className="text-xs text-slate-500">PNG, JPG ou PDF (Máx. 5MB)</p>
-                                                </>
-                                            )}
-                                        </div>
-                                        <input 
-                                            id="dropzone-file" 
-                                            type="file" 
-                                            accept="image/*,.pdf"
-                                            className="hidden" 
-                                            onChange={handleFileChange}
-                                            required 
-                                        />
-                                    </label>
+
+                                {/* Verso */}
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-slate-300 block">Verso do Documento (BI/CC) *</label>
+                                    <div className="flex items-center justify-center w-full">
+                                        <label htmlFor="dropzone-file-back" className="flex flex-col items-center justify-center w-full h-32 border-2 border-slate-700 border-dashed rounded-xl cursor-pointer bg-slate-900/40 hover:bg-slate-800/50 hover:border-amber-500/50 transition-colors">
+                                            <div className="flex flex-col items-center justify-center pt-5 pb-6 px-4 text-center">
+                                                <UploadCloud className="w-8 h-8 mb-2 text-slate-400" />
+                                                {fileBack ? (
+                                                    <p className="text-sm font-medium text-emerald-400 truncate max-w-full">{fileBack.name}</p>
+                                                ) : (
+                                                    <>
+                                                        <p className="mb-1 text-sm text-slate-400"><span className="font-semibold text-amber-500">Selecionar Verso</span></p>
+                                                        <p className="text-[10px] text-slate-500">PNG, JPG ou PDF (Máx. 5MB)</p>
+                                                    </>
+                                                )}
+                                            </div>
+                                            <input 
+                                                id="dropzone-file-back" 
+                                                type="file" 
+                                                accept="image/*,.pdf"
+                                                className="hidden" 
+                                                onChange={handleFileBackChange}
+                                                required 
+                                            />
+                                        </label>
+                                    </div>
                                 </div>
                             </div>
                         </div>
