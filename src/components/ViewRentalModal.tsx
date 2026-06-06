@@ -27,7 +27,6 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
     const [liveIvaMats, setLiveIvaMats] = useState(0);
     const [liveIvaTransp, setLiveIvaTransp] = useState(0);
     const [liveTotal, setLiveTotal] = useState(0);
-    const [liveReceivedBy, setLiveReceivedBy] = useState('Não definido');
     const [liveHistory, setLiveHistory] = useState<any[]>([]);
     const [refreshKey, setRefreshKey] = useState(0);
 
@@ -42,7 +41,6 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
     useEffect(() => {
         if (!isOpen || !rental) return;
         setNotes(rental.observacoes || '');
-        setLiveReceivedBy(rental.received_by || 'Não definido');
         setLiveHistory(rental.extensions_history || []);
         if (rental.items && rental.items.length > 0) setFetchedItems(rental.items);
 
@@ -60,7 +58,6 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
                     setLiveIvaTransp(Number(rentData.iva_transport || 0));
                     setLiveTotal(Number(rentData.total_amount || 0));
                     setNotes(rentData.observacoes || '');
-                    setLiveReceivedBy(rentData.received_by || 'Não definido');
                     setLiveHistory(rentData.extensions_history || []);
                 }
                 const { data } = await supabase
@@ -232,7 +229,6 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
                                     const pickupFmt = new Date(rental.pickup_date).toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' });
                                     const returnFmt = new Date(rental.return_date).toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit', year: 'numeric' });
                                     const dur = `${rental.rental_duration_value || rental.semanas || 1} ${rental.rental_duration_type === 'dia' ? 'dia(s)' : 'semana(s)'}`;
-                                    const itemsRows = fetchedItems.map(i => `<tr><td style="padding:6px 0;border-bottom:1px solid #e2e8f0;">${i.quantity}x ${i.name}</td><td style="padding:6px 0;border-bottom:1px solid #e2e8f0;text-align:right;">${(i.price_unit > 0 ? (i.price_unit * i.quantity).toFixed(2) + ' €' : '')}</td></tr>`).join('');
                                     const rows = [
                                         liveMaterials > 0 ? `<tr><td style="padding:8px 0;border-bottom:1px solid #e2e8f0;">${fetchedItems.map(i => `${i.quantity}x ${i.name}`).join(', ')} — ${dur}</td><td style="padding:8px 0;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:600;">${liveMaterials.toFixed(2)} €</td></tr>` : '',
                                         liveTransport > 0 ? `<tr><td style="padding:8px 0;border-bottom:1px solid #e2e8f0;">Transporte</td><td style="padding:8px 0;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:600;">${liveTransport.toFixed(2)} €</td></tr>` : '',
@@ -337,7 +333,7 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
                 {/* Footer Ações */}
                 <div className="flex flex-wrap items-center gap-2 px-5 py-4 border-t border-slate-800 bg-slate-900/50 rounded-b-2xl">
                     <Button type="button" variant="ghost" className="h-8 px-3 text-xs text-amber-400 border border-amber-500/20 hover:bg-amber-500/10"
-                        onClick={() => printRentalContractHTML(rental, fetchedItems)}>
+                        onClick={() => printRentalContractHTML(rental)}>
                         <Printer className="w-3.5 h-3.5 mr-1.5" /> Imprimir
                     </Button>
                     {onEdit && (

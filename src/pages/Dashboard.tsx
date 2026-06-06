@@ -404,7 +404,6 @@ export default function Dashboard() {
             if (r.status === 'active') return true;
             if (r.status === 'completed' || r.status === 'canceled') {
                 const pickup = new Date(r.pickup_date);
-                const returnDate = new Date(getEffectiveReturnDate(r));
                 const inCurrentMonth =
                     pickup.getMonth() === currentMonth && pickup.getFullYear() === currentYear;
                 return inCurrentMonth;

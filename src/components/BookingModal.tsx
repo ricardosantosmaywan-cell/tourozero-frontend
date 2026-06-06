@@ -206,21 +206,6 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
         setReturnDate(resultDate.toISOString().split('T')[0]);
     }, [pickupDate, durationValue, durationUnit]);
 
-    async function searchCustomer() {
-        setFormError('');
-        if (!nifSearch) return;
-
-        const foundCustomer = customers.find(c => c.tax_id === nifSearch);
-
-        if (foundCustomer) {
-            setSelectedCustomer(foundCustomer as Customer);
-            setShowCustomerForm(false);
-        } else {
-            setSelectedCustomer(null);
-            setShowCustomerForm(true);
-            setNewCustomerData({ ...newCustomerData, tax_id: nifSearch });
-        }
-    }
 
     async function handleSave(e: React.FormEvent) {
         e.preventDefault();
