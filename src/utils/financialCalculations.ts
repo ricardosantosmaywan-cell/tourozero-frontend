@@ -24,17 +24,18 @@ export interface PartnershipSummary {
 }
 
 /**
- * Calcula a partilha de lucros entre Gabriel (80% base) e Ricardo (20% base)
- * e 50% / 50% de transporte.
+ * Calcula a partilha de lucros entre Gabriel (70% base) e Ricardo (30% base)
+ * e 70% / 30% de transporte.
  * Calcula também o acerto de contas (quem deve transferir para quem).
  */
 export function calculatePartnershipSummary(totals: PartnershipTotals): PartnershipSummary {
-    const gabrielBase = totals.materialsTotal * 0.8;
-    const ricardoBase = totals.materialsTotal * 0.2;
-    const transportSplit = totals.transportTotal / 2;
+    const gabrielBase = totals.materialsTotal * 0.7;
+    const ricardoBase = totals.materialsTotal * 0.3;
+    const gabrielTransportSplit = totals.transportTotal * 0.7;
+    const ricardoTransportSplit = totals.transportTotal * 0.3;
 
-    const gabrielTotalToReceive = gabrielBase + transportSplit;
-    const ricardoTotalToReceive = ricardoBase + transportSplit;
+    const gabrielTotalToReceive = gabrielBase + gabrielTransportSplit;
+    const ricardoTotalToReceive = ricardoBase + ricardoTransportSplit;
 
     const diffGabriel = gabrielTotalToReceive - totals.receivedGabriel;
     const isRicardoToGabriel = diffGabriel >= 0;
@@ -42,11 +43,11 @@ export function calculatePartnershipSummary(totals: PartnershipTotals): Partners
 
     return {
         gabrielBase,
-        gabrielTransport: transportSplit,
+        gabrielTransport: gabrielTransportSplit,
         gabrielTotalToReceive,
-        
+
         ricardoBase,
-        ricardoTransport: transportSplit,
+        ricardoTransport: ricardoTransportSplit,
         ricardoTotalToReceive,
         
         diffGabriel,

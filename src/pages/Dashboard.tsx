@@ -16,7 +16,7 @@ import { supabase } from '../lib/supabase';
 export default function Dashboard() {
     const [currentTime, setCurrentTime] = useState(new Date());
 
-    const { rentals, loading: loadingRentals, updateRentalPartial, deleteRental, refreshRentals } = useGlobalRentals();
+    const { rentals, loading: loadingRentals, updateRentalPartial, deleteRental, confirmPickup, refreshRentals } = useGlobalRentals();
     const { products, loading: loadingProducts, refreshProducts } = useGlobalProducts();
     const { selectedMonth, selectedYear, selectedDay, startDate, isSpecificDay } = usePeriod();
     const isLoading = loadingRentals || loadingProducts;
@@ -64,6 +64,8 @@ export default function Dashboard() {
     const [editReturnDate, setEditReturnDate] = useState('');
     const [editReceivedBy, setEditReceivedBy] = useState('Ricardo');
     const [editNote, setEditNote] = useState('');
+    const [editPaymentStatus, setEditPaymentStatus] = useState<'paid' | 'pending'>('pending');
+    const [editPaymentReference, setEditPaymentReference] = useState('');
     const [isSavingExt, setIsSavingExt] = useState(false);
 
     // Stock Sync Modal States
@@ -151,7 +153,9 @@ export default function Dashboard() {
                     period: ext.period || (ext.start_date && ext.end_date ? `${new Date(ext.start_date).toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' })} → ${new Date(ext.end_date).toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' })}` : '-'),
                     extra_value: ext.extra_value ?? ext.extra_materials ?? 0,
                     received_by: ext.received_by || 'Ricardo',
-                    notes: ext.notes ?? ext.note ?? ''
+                    notes: ext.notes ?? ext.note ?? '',
+                    payment_status: ext.payment_status || 'pending',
+                    payment_reference: ext.payment_reference || ''
                 }));
                 setExtensionsData(prev => ({ ...prev, [rentalId]: mappedData }));
                 const sum = mappedData.reduce((acc: number, ext: any) => acc + Number(ext.extra_value || 0), 0);
@@ -161,13 +165,19 @@ export default function Dashboard() {
             }
         } catch (err) {
             const currentRental = rentals.find(r => r.id === rentalId);
-            if (currentRental && currentRental.extensions_history && currentRental.extensions_history.length > 0) {
-                const mappedData = currentRental.extensions_history.map((ext: any, idx: number) => ({
-                    id: ext.date || `${rentalId}-ext-${idx}`,
+            const prolongEntries = (currentRental?.extensions_history || [])
+                .map((ext: any, originalIndex: number) => ({ ext, originalIndex }))
+                .filter(({ ext }: any) => ext.type === 'prolongamento');
+            if (currentRental && prolongEntries.length > 0) {
+                const mappedData = prolongEntries.map(({ ext, originalIndex }: any) => ({
+                    id: ext.date || `${rentalId}-ext-${originalIndex}`,
+                    originalIndex,
                     period: ext.old_return_date && ext.new_return_date ? `${new Date(ext.old_return_date).toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' })} → ${new Date(ext.new_return_date).toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' })}` : '-',
                     extra_value: ext.extra_materials ?? ext.extra_value ?? 0,
                     received_by: ext.received_by || 'Ricardo',
-                    notes: ext.note ?? ''
+                    notes: ext.note ?? '',
+                    payment_status: ext.payment_status || 'pending',
+                    payment_reference: ext.payment_reference || ''
                 }));
                 setExtensionsData(prev => ({ ...prev, [rentalId]: mappedData }));
                 const sum = mappedData.reduce((acc: number, ext: any) => acc + Number(ext.extra_value || 0), 0);
@@ -191,23 +201,25 @@ export default function Dashboard() {
     };
 
     const handleConfirmProlong = async (
-        daysDiff: number, 
-        extraValue: number, 
-        note: string, 
-        newItems: any[], 
-        newReturnDateStr: string, 
-        depositValue: number, 
-        transportValue: number, 
-        receivedBy: string
+        daysDiff: number,
+        extraValue: number,
+        note: string,
+        newItems: any[],
+        newReturnDateStr: string,
+        depositValue: number,
+        transportValue: number,
+        receivedBy: string,
+        paymentStatus: 'paid' | 'pending' = 'pending',
+        paymentReference: string = ''
     ) => {
         if (!selectedRentalForProlong) return;
         const rental = selectedRentalForProlong;
         const oldTotal = Number(rental.total_amount || 0);
-        
+
         const diffDeposit = depositValue - (Number(rental.deposit_value || 0));
         const diffTransport = transportValue - (Number(rental.transport_value || 0));
         const newTotal = oldTotal + extraValue + diffDeposit + diffTransport;
-        
+
         const oldWeeks = Number(rental.semanas || 0);
         const extraWeeksFraction = daysDiff / 7;
         const newWeeksTotal = Number((oldWeeks + extraWeeksFraction).toFixed(1));
@@ -227,6 +239,8 @@ export default function Dashboard() {
             new_transport: transportValue,
             received_by: receivedBy || 'Ricardo',
             note: note,
+            payment_status: paymentStatus,
+            payment_reference: paymentReference,
             added_items: newItems.map(it => ({ name: it.product.name, quantity: it.quantity }))
         };
 
@@ -333,14 +347,20 @@ export default function Dashboard() {
         };
     };
 
-    const handleOpenEditExt = (rental: any, extIndex: number, ext: any) => {
+    // Recebe o índice real dentro de rental.extensions_history (não o índice da lista filtrada exibida)
+    // e busca a entrada crua ali, já que o objeto exibido na lista é uma versão resumida/mapeada.
+    const handleOpenEditExt = (rental: any, extIndex: number) => {
+        const rawExt = (rental.extensions_history || [])[extIndex];
+        if (!rawExt) return;
         setEditingExt({ rentalId: rental.id, extIndex });
-        setEditValue(getExtValue(ext));
+        setEditValue(getExtValue(rawExt));
         const formatDateForInput = (d: string) => d ? d.split('T')[0] : '';
-        setEditStartDate(formatDateForInput(ext.old_return_date));
-        setEditReturnDate(formatDateForInput(ext.new_return_date || ''));
-        setEditReceivedBy(ext.received_by || rental.received_by || 'Ricardo');
-        setEditNote(ext.note || '');
+        setEditStartDate(formatDateForInput(rawExt.old_return_date));
+        setEditReturnDate(formatDateForInput(rawExt.new_return_date || ''));
+        setEditReceivedBy(rawExt.received_by || rental.received_by || 'Ricardo');
+        setEditNote(rawExt.note || '');
+        setEditPaymentStatus(rawExt.payment_status || 'pending');
+        setEditPaymentReference(rawExt.payment_reference || '');
     };
 
     const handleDeleteExt = async (rental: any, extIndex: number) => {
@@ -377,6 +397,8 @@ export default function Dashboard() {
                 new_return_date: editReturnDate,
                 received_by:     editReceivedBy,
                 note:            editNote,
+                payment_status:  editPaymentStatus,
+                payment_reference: editPaymentReference,
             };
             const update = recalcRentalAfterExtChange(rental, exts);
             await updateRentalPartial(rental.id, update);
@@ -698,52 +720,49 @@ export default function Dashboard() {
     };
 
     const totals = useMemo(() => {
-        const paidRentals = displayRentals.filter(r => r.payment_status === 'paid');
-        
-        const extMaterials = paidRentals.reduce((acc, r) => {
-            return acc + getExtensions(r).reduce((s: number, e: any) => s + getExtValue(e), 0);
-        }, 0);
-
-        const baseMaterials = paidRentals.reduce((acc, r) => {
-            const extSum = getExtensions(r).reduce((s: number, e: any) => s + getExtValue(e), 0);
-            return acc + Math.max(0, (r.materials_value || 0) - extSum);
-        }, 0);
-        
-        const transportTotal = paidRentals.reduce((acc, r) => acc + (Number(r.transport_value) || 0), 0);
-        const materialsTotal = baseMaterials + extMaterials;
-
+        // Só entra no relatório o que foi EFETIVAMENTE recebido: aluguer base conta se
+        // payment_status === 'paid'; cada prolongamento conta pelo seu próprio status;
+        // transporte conta Ida e Volta separadamente, cada um pelo seu próprio status.
+        let materialsTotal = 0;
+        let extMaterials = 0;
+        let transportTotal = 0;
         let receivedGabriel = 0;
         let receivedRicardo = 0;
 
-        paidRentals.forEach(r => {
+        const addToReceiver = (receivedBy: string, amount: number) => {
+            if (amount <= 0) return;
+            const name = (receivedBy || 'Ricardo').toLowerCase();
+            if (name.includes('ricardo') && name.includes('gabriel')) {
+                receivedRicardo += amount / 2;
+                receivedGabriel += amount / 2;
+            } else if (name.includes('gabriel')) {
+                receivedGabriel += amount;
+            } else {
+                receivedRicardo += amount;
+            }
+        };
+
+        displayRentals.forEach(r => {
             const exts = getExtensions(r);
             const extSum = exts.reduce((s: number, e: any) => s + getExtValue(e), 0);
             const initialMat = Math.max(0, (r.materials_value || 0) - extSum);
-            const transport = Number(r.transport_value || 0);
-            
             const mainReceivedBy = r.received_by || 'Ricardo';
-            const mainAmount = initialMat + transport;
-            
-            if (mainReceivedBy.toLowerCase().includes('ricardo') && mainReceivedBy.toLowerCase().includes('gabriel')) {
-                receivedRicardo += mainAmount / 2;
-                receivedGabriel += mainAmount / 2;
-            } else if (mainReceivedBy.toLowerCase().includes('gabriel')) {
-                receivedGabriel += mainAmount;
-            } else {
-                receivedRicardo += mainAmount;
-            }
 
-            exts.forEach((ext: any) => {
+            const baseReceived = r.payment_status === 'paid' ? initialMat : 0;
+            materialsTotal += baseReceived;
+            addToReceiver(mainReceivedBy, baseReceived);
+
+            const idaReceived = r.transport_ida_paid ? Number(r.transport_ida_value || 0) : 0;
+            const voltaReceived = r.transport_volta_paid ? Number(r.transport_volta_value || 0) : 0;
+            transportTotal += idaReceived + voltaReceived;
+            addToReceiver(mainReceivedBy, idaReceived + voltaReceived);
+
+            exts.filter((ext: any) => ext.type === 'prolongamento').forEach((ext: any) => {
+                if (ext.payment_status === 'pending') return;
                 const extVal = getExtValue(ext);
-                const extReceivedBy = ext.received_by || mainReceivedBy;
-                if (extReceivedBy.toLowerCase().includes('ricardo') && extReceivedBy.toLowerCase().includes('gabriel')) {
-                    receivedRicardo += extVal / 2;
-                    receivedGabriel += extVal / 2;
-                } else if (extReceivedBy.toLowerCase().includes('gabriel')) {
-                    receivedGabriel += extVal;
-                } else {
-                    receivedRicardo += extVal;
-                }
+                materialsTotal += extVal;
+                extMaterials += extVal;
+                addToReceiver(ext.received_by || mainReceivedBy, extVal);
             });
         });
 
@@ -804,6 +823,22 @@ export default function Dashboard() {
 
         } catch (err: any) {
             alert("Erro ao finalizar aluguer: " + err.message);
+        }
+    };
+
+    const handleConfirmPickup = async (rental: any) => {
+        const clientName = rental?.customers?.full_name || 'Cliente';
+        const itemsList = (rental?.items || []).map((it: any) => `  • ${it.quantity}x ${it.name}`).join('\n');
+        const confirmMsg = `Confirmar retirada do material por ${clientName}?\n\n` +
+            `Os seguintes itens serão descontados do stock:\n${itemsList || '  (sem itens)'}`;
+        if (!window.confirm(confirmMsg)) return;
+
+        try {
+            await confirmPickup(rental.id);
+            await refreshProducts();
+            await refreshRentals();
+        } catch (err: any) {
+            alert("Erro ao confirmar retirada: " + err.message);
         }
     };
 
@@ -876,12 +911,14 @@ export default function Dashboard() {
         stockStatus: {
             total: products.filter(p => p.name.toLowerCase().includes('andaime')).reduce((acc, p) => acc + p.stock_total, 0),
             rented: activeRentals.reduce((acc, curr) => {
+                // Apenas conta alugueres ativos (concluídos/cancelados já devolveram ao stock)
+                if (curr.status !== 'active') return acc;
                 // Apenas conta como stock "alugado" (fora do armazém) se a data de levantamento já chegou ou já passou
                 const pickupDate = new Date(curr.pickup_date);
                 pickupDate.setHours(0, 0, 0, 0);
                 const today = new Date();
                 today.setHours(23, 59, 59, 999);
-                
+
                 if (pickupDate <= today) {
                     const andaimesRented = curr.items?.filter((it: any) => it.name.toLowerCase().includes('andaime')).reduce((sum: number, it: any) => sum + it.quantity, 0) || 0;
                     return acc + andaimesRented;
@@ -957,35 +994,82 @@ export default function Dashboard() {
                             </tr>
                         ) : (
                             displayRentals.map(r => {
+                                const baseVal = getOriginalMaterialsValue(r);
+                                const prolongEntries = getExtensions(r).filter((ext: any) => ext.type === 'prolongamento');
+                                const prolongSum = prolongEntries.reduce((s: number, e: any) => s + getExtValue(e), 0);
+                                const totalMateriais = baseVal + prolongSum;
+                                const transport = Number(r.transport_value || 0);
+
                                 return (
                                     <Fragment key={`print-${r.id}`}>
-                                        <tr className={`hover:bg-slate-50 ${r.payment_status === 'pending' ? 'opacity-40' : ''} border-b border-slate-100`}>
-                                            <td className="px-3 py-3 text-slate-600 whitespace-nowrap">
+                                        {/* Linha do aluguel principal */}
+                                        <tr className={`hover:bg-slate-50 ${r.payment_status === 'pending' ? 'opacity-40' : ''} border-b-0`}>
+                                            <td className="px-3 py-2 text-slate-600 whitespace-nowrap">
                                                 {formatDateRange(r.pickup_date, getOriginalReturnDate(r))}
                                             </td>
-                                            <td className="px-3 py-3 text-black">
+                                            <td className="px-3 py-2 text-black">
                                                 <div className="flex flex-col">
                                                     <span className="font-bold">{r.customers?.full_name}</span>
                                                     <span className="text-[9px] text-slate-500 mt-0.5">{getRentalPrintDescription(r)}</span>
                                                 </div>
                                             </td>
-                                            <td className="px-3 py-3 text-slate-700">
+                                            <td className="px-3 py-2 text-slate-700">
                                                 {renderReceivedBy(r.received_by, getExtensions(r))}
                                             </td>
-                                            <td className="px-3 py-3 text-right font-bold text-black whitespace-nowrap">
-                                                {formatCurrency(r.materials_value || 0)}
+                                            <td className="px-3 py-2 text-right font-bold text-black whitespace-nowrap">
+                                                {formatCurrency(baseVal)}
                                             </td>
-                                            <td className="px-3 py-3 text-right text-slate-500 whitespace-nowrap">
-                                                {formatCurrency(Number(r.transport_value || 0))}
+                                            <td className="px-3 py-2 text-right text-slate-500 whitespace-nowrap">—</td>
+                                        </tr>
+
+                                        {/* Uma linha por prolongamento */}
+                                        {prolongEntries.map((ext: any, idx: number) => (
+                                            <tr key={`print-${r.id}-ext-${idx}`} className={`hover:bg-slate-50 ${r.payment_status === 'pending' ? 'opacity-40' : ''} border-b-0`}>
+                                                <td className="px-3 py-1.5 pl-6 text-slate-500 whitespace-nowrap text-[10px]">
+                                                    {formatDateRange(ext.old_return_date, ext.new_return_date)}
+                                                </td>
+                                                <td className="px-3 py-1.5 text-slate-600 italic text-[10px]">
+                                                    ↳ Prolongamento {ext.payment_status === 'pending' ? '(Por Pagar)' : '(Pago)'}
+                                                </td>
+                                                <td className="px-3 py-1.5 text-slate-500 text-[10px]">
+                                                    {ext.received_by || r.received_by || '-'}
+                                                </td>
+                                                <td className="px-3 py-1.5 text-right text-slate-700 whitespace-nowrap text-[10px]">
+                                                    {formatCurrency(getExtValue(ext))}
+                                                </td>
+                                                <td className="px-3 py-1.5 text-right text-slate-500 whitespace-nowrap text-[10px]">—</td>
+                                            </tr>
+                                        ))}
+
+                                        {/* Linha de total do cliente (aluguel + prolongamentos + transporte) */}
+                                        <tr className="border-b border-slate-300 bg-slate-50/60">
+                                            <td colSpan={3} className="px-3 py-2 text-right text-[10px] uppercase tracking-wider text-slate-500">
+                                                Total {r.customers?.full_name}{prolongEntries.length > 0 ? ` (${prolongEntries.length} prolong.)` : ''}:
+                                            </td>
+                                            <td className="px-3 py-2 text-right font-bold text-black whitespace-nowrap">
+                                                {formatCurrency(totalMateriais)}
+                                            </td>
+                                            <td className="px-3 py-2 text-right font-bold text-slate-700 whitespace-nowrap">
+                                                {transport > 0 ? (
+                                                    <div className="flex flex-col leading-tight">
+                                                        <span>{formatCurrency(transport)}</span>
+                                                        {Number(r.transport_ida_value || 0) > 0 && (
+                                                            <span className="text-[9px] font-normal text-slate-500">Ida {formatCurrency(Number(r.transport_ida_value || 0))} {r.transport_ida_paid ? '✓' : '(por pagar)'}</span>
+                                                        )}
+                                                        {Number(r.transport_volta_value || 0) > 0 && (
+                                                            <span className="text-[9px] font-normal text-slate-500">Volta {formatCurrency(Number(r.transport_volta_value || 0))} {r.transport_volta_paid ? '✓' : '(por pagar)'}</span>
+                                                        )}
+                                                    </div>
+                                                ) : '—'}
                                             </td>
                                         </tr>
                                     </Fragment>
                                 );
                             })
                         )}
-                        {/* Linha de Totais */}
-                        <tr className="font-bold border-t-2 border-slate-900 bg-slate-50 text-sm">
-                            <td colSpan={3} className="px-3 py-4 text-right uppercase tracking-wider text-xs">Totais do Período:</td>
+                        {/* Linha de Totais Gerais */}
+                        <tr className="font-bold border-t-2 border-slate-900 bg-slate-100 text-sm">
+                            <td colSpan={3} className="px-3 py-4 text-right uppercase tracking-wider text-xs">Totais do Período (Recebido):</td>
                             <td className="px-3 py-4 text-right">{formatCurrency(totals.materialsTotal)}</td>
                             <td className="px-3 py-4 text-right">{formatCurrency(totals.transportTotal)}</td>
                         </tr>
@@ -994,8 +1078,8 @@ export default function Dashboard() {
 
                 {/* Bloco de Resumo de Partilha */}
                 {(() => {
-                    const totalGabriel = (totals.materialsTotal * 0.8) + (totals.transportTotal / 2);
-                    const totalRicardo = (totals.materialsTotal * 0.2) + (totals.transportTotal / 2);
+                    const totalGabriel = (totals.materialsTotal * 0.7) + (totals.transportTotal * 0.7);
+                    const totalRicardo = (totals.materialsTotal * 0.3) + (totals.transportTotal * 0.3);
                     const balanceGabriel = totalGabriel - totals.receivedGabriel;
                     const isRicardoToGabriel = balanceGabriel >= 0;
                     const transferAmount = Math.abs(balanceGabriel);
@@ -1009,12 +1093,12 @@ export default function Dashboard() {
                                 <div className="space-y-2">
                                     <h4 className="font-bold text-emerald-800 uppercase tracking-widest text-xs border-b border-emerald-200 pb-1">Parte Gabriel</h4>
                                     <div className="flex justify-between text-xs text-slate-700">
-                                        <span>Base (80%)</span>
-                                        <span className="font-medium">{formatCurrency(totals.materialsTotal * 0.8)}</span>
+                                        <span>Base Andaimes (70%)</span>
+                                        <span className="font-medium">{formatCurrency(totals.materialsTotal * 0.7)}</span>
                                     </div>
                                     <div className="flex justify-between text-xs text-slate-700">
-                                        <span>Transporte (50%)</span>
-                                        <span className="font-medium">{formatCurrency(totals.transportTotal / 2)}</span>
+                                        <span>Transporte (70%)</span>
+                                        <span className="font-medium">{formatCurrency(totals.transportTotal * 0.7)}</span>
                                     </div>
                                     <div className="flex justify-between text-sm pt-2 mt-2 border-t border-slate-200 font-bold text-emerald-900">
                                         <span>Total a Receber</span>
@@ -1041,12 +1125,12 @@ export default function Dashboard() {
                                 <div className="space-y-2">
                                     <h4 className="font-bold text-blue-800 uppercase tracking-widest text-xs border-b border-blue-200 pb-1">Parte Ricardo</h4>
                                     <div className="flex justify-between text-xs text-slate-700">
-                                        <span>Base (20%)</span>
-                                        <span className="font-medium">{formatCurrency(totals.materialsTotal * 0.2)}</span>
+                                        <span>Base Andaimes (30%)</span>
+                                        <span className="font-medium">{formatCurrency(totals.materialsTotal * 0.3)}</span>
                                     </div>
                                     <div className="flex justify-between text-xs text-slate-700">
-                                        <span>Transporte (50%)</span>
-                                        <span className="font-medium">{formatCurrency(totals.transportTotal / 2)}</span>
+                                        <span>Transporte (30%)</span>
+                                        <span className="font-medium">{formatCurrency(totals.transportTotal * 0.3)}</span>
                                     </div>
                                     <div className="flex justify-between text-sm pt-2 mt-2 border-t border-slate-200 font-bold text-blue-900">
                                         <span>Total a Receber</span>
@@ -1347,18 +1431,19 @@ export default function Dashboard() {
                         <Table>
                             <TableHeader>
                                 <TableRow className="bg-slate-950 border-slate-800 print:border-black print:bg-white hover:bg-transparent">
-                                    <TableHead className="w-[35%] min-w-[200px] print:text-black">Cliente</TableHead>
-                                    <TableHead className="w-[15%] min-w-[120px] print:text-black">Prazo</TableHead>
-                                    <TableHead className="w-[15%] min-w-[130px] print:text-black">Status</TableHead>
-                                    <TableHead className="w-[15%] min-w-[120px] print:text-black">Valor (€)</TableHead>
-                                    <TableHead className="w-[10%] min-w-[100px] print:text-black">Pagamento</TableHead>
+                                    <TableHead className="w-[30%] min-w-[200px] print:text-black">Cliente</TableHead>
+                                    <TableHead className="w-[13%] min-w-[120px] print:text-black">Prazo</TableHead>
+                                    <TableHead className="w-[13%] min-w-[130px] print:text-black">Status</TableHead>
+                                    <TableHead className="w-[12%] min-w-[110px] print:text-black">Valor (€)</TableHead>
+                                    <TableHead className="w-[10%] min-w-[100px] print:text-black">Transporte (€)</TableHead>
+                                    <TableHead className="w-[12%] min-w-[100px] print:text-black">Pagamento</TableHead>
                                     <TableHead className="w-[10%] text-right print:hidden">Ações</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {displayRentals.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="text-center py-6 text-slate-400">
+                                        <TableCell colSpan={7} className="text-center py-6 text-slate-400">
                                             {(filterStartDate || filterEndDate)
                                                 ? 'Nenhum aluguer encontrado para o período selecionado.'
                                                 : activeRentals.length > 0 
@@ -1425,13 +1510,25 @@ export default function Dashboard() {
                                                         </div>
                                                     </TableCell>
                                                     <TableCell className="whitespace-nowrap print:text-black">
-                                                        <span className="font-semibold text-slate-200 print:text-black print:font-medium">
-                                                            {new Date(rental.pickup_date).toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' })}
-                                                        </span>
-                                                        <span className="text-slate-500 mx-1 print:text-black">→</span>
-                                                        <span className="font-semibold text-slate-200 print:text-black print:font-medium">
-                                                            {new Date(getOriginalReturnDate(rental)).toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' })}
-                                                        </span>
+                                                        <div>
+                                                            <span className="font-semibold text-slate-200 print:text-black print:font-medium">
+                                                                {new Date(rental.pickup_date).toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' })}
+                                                            </span>
+                                                            <span className="text-slate-500 mx-1 print:text-black">→</span>
+                                                            <span className="font-semibold text-slate-200 print:text-black print:font-medium">
+                                                                {new Date(getOriginalReturnDate(rental)).toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' })}
+                                                            </span>
+                                                        </div>
+                                                        {(() => {
+                                                            const numProlong = getExtensions(rental).filter((ext: any) => ext.type === 'prolongamento').length;
+                                                            if (numProlong === 0) return null;
+                                                            return (
+                                                                <div className="text-[10px] text-amber-400 font-bold mt-0.5 flex items-center gap-1 print:hidden">
+                                                                    <CalendarPlus className="w-3 h-3" />
+                                                                    +{numProlong} prolong. até {new Date(getEffectiveReturnDate(rental)).toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' })}
+                                                                </div>
+                                                            );
+                                                        })()}
                                                     </TableCell>
                                                     <TableCell className="print:text-black">
                                                         {rental.status === 'completed' ? (
@@ -1441,6 +1538,10 @@ export default function Dashboard() {
                                                         ) : rental.status === 'canceled' ? (
                                                             <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-800 text-slate-400 border border-slate-700 whitespace-nowrap print:bg-transparent print:text-black print:border-black">
                                                                 Cancelado
+                                                            </span>
+                                                        ) : rental.pickup_confirmed === false ? (
+                                                            <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/20 whitespace-nowrap print:bg-transparent print:text-black print:border-black">
+                                                                Reserva
                                                             </span>
                                                         ) : late ? (
                                                             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-red-500/10 text-red-500 border border-red-500/20 whitespace-nowrap print:bg-transparent print:text-red-600 print:border-red-600">
@@ -1461,6 +1562,24 @@ export default function Dashboard() {
                                                                 </span>
                                                             )}
                                                         </div>
+                                                    </TableCell>
+                                                    <TableCell className="text-slate-300 print:text-black">
+                                                        {Number(rental.transport_value || 0) === 0 ? (
+                                                            <span className="text-slate-600">—</span>
+                                                        ) : (
+                                                            <div className="flex flex-col gap-0.5 text-[11px] leading-tight">
+                                                                {Number(rental.transport_ida_value || 0) > 0 && (
+                                                                    <span className={rental.transport_ida_paid ? 'text-emerald-400' : 'text-red-400 font-bold'}>
+                                                                        Ida {formatCurrency(Number(rental.transport_ida_value || 0))} {rental.transport_ida_paid ? '✓' : '(pendente)'}
+                                                                    </span>
+                                                                )}
+                                                                {Number(rental.transport_volta_value || 0) > 0 && (
+                                                                    <span className={rental.transport_volta_paid ? 'text-emerald-400' : 'text-red-400 font-bold'}>
+                                                                        Volta {formatCurrency(Number(rental.transport_volta_value || 0))} {rental.transport_volta_paid ? '✓' : '(pendente)'}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        )}
                                                     </TableCell>
                                                     <TableCell className="print:text-black">
                                                         {rental.payment_status === 'paid' ? (
@@ -1502,6 +1621,19 @@ export default function Dashboard() {
                                                                         >
                                                                             <CheckCircle2 className="w-3.5 h-3.5" />
                                                                             Confirmar Pagamento
+                                                                        </button>
+                                                                    )}
+                                                                    {rental.status === 'active' && rental.pickup_confirmed === false && (
+                                                                        <button
+                                                                            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-blue-400 hover:bg-blue-500/10 rounded-lg text-left transition-colors mb-1 cursor-pointer"
+                                                                            onClick={async (e) => {
+                                                                                e.stopPropagation();
+                                                                                setActiveDropdownId(null);
+                                                                                await handleConfirmPickup(rental);
+                                                                            }}
+                                                                        >
+                                                                            <CheckCircle2 className="w-3.5 h-3.5" />
+                                                                            Confirmar Retirada
                                                                         </button>
                                                                     )}
                                                                     <button
@@ -1580,7 +1712,7 @@ export default function Dashboard() {
                                                 </TableRow>
                                                 {isExpanded && (
                                                     <TableRow className="bg-slate-950/40 hover:bg-slate-950/40 border-b border-slate-800">
-                                                        <TableCell colSpan={6} className="p-3 border-t border-slate-800/60">
+                                                        <TableCell colSpan={7} className="p-3 border-t border-slate-800/60">
                                                             <div className="pl-8 pr-4 py-2 space-y-2">
                                                                 <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                                                                     Histórico de Prolongamentos
@@ -1593,60 +1725,49 @@ export default function Dashboard() {
                                                                 ) : exts.length === 0 ? (
                                                                     <p className="text-xs text-slate-500 italic py-2">Sem prolongamentos registados.</p>
                                                                 ) : (
-                                                                    <div className="rounded-lg border border-slate-800/80 bg-slate-900/30 overflow-hidden print:border-black print:bg-white">
-                                                                        <table className="w-full text-left border-collapse">
-                                                                            <thead>
-                                                                                <tr className="border-b border-slate-800 bg-slate-900/40 text-[10px] uppercase font-bold text-slate-500 print:border-black print:bg-white print:text-black">
-                                                                                    <th className="px-3 py-2 print:text-black">Período</th>
-                                                                                    <th className="px-3 py-2 print:text-black">Valor Extra (€)</th>
-                                                                                    <th className="px-3 py-2 print:text-black">Recebido por</th>
-                                                                                    <th className="px-3 py-2 print:text-black">Notas</th>
-                                                                                    <th className="px-3 py-2 text-right print:hidden">Ações</th>
-                                                                                </tr>
-                                                                            </thead>
-                                                                            <tbody className="divide-y divide-slate-800/50 text-[11px] text-slate-300 print:divide-black">
-                                                                                {exts.map((ext: any, idx: number) => (
-                                                                                    <tr key={ext.id} className="hover:bg-slate-800/10 print:hover:bg-transparent">
-                                                                                        <td className="px-3 py-2 font-medium text-slate-200 print:text-black">{ext.period}</td>
-                                                                                        <td className="px-3 py-2 font-bold text-emerald-400 print:text-black">{(Number(ext.extra_value)).toFixed(2)} €</td>
-                                                                                        <td className="px-3 py-2">
-                                                                                            {ext.received_by?.toLowerCase() === 'ricardo' ? (
-                                                                                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 print:bg-transparent print:text-amber-600 print:border-amber-600">
-                                                                                                    Ricardo
-                                                                                                </span>
-                                                                                            ) : ext.received_by?.toLowerCase() === 'gabriel' ? (
-                                                                                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 print:bg-transparent print:text-emerald-600 print:border-emerald-600">
-                                                                                                    Gabriel
-                                                                                                </span>
-                                                                                            ) : (
-                                                                                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-slate-800 text-slate-400 border border-slate-700 print:bg-transparent print:text-black print:border-black">
-                                                                                                    {ext.received_by || '-'}
-                                                                                                </span>
-                                                                                            )}
-                                                                                        </td>
-                                                                                        <td className="px-3 py-2 text-slate-400 print:text-black max-w-[300px] truncate" title={ext.notes}>{ext.notes || '-'}</td>
-                                                                                        <td className="px-3 py-2 text-right print:hidden">
-                                                                                            <div className="flex items-center justify-end gap-1.5">
-                                                                                                <button
-                                                                                                    onClick={() => handleOpenEditExt(rental, idx, ext)}
-                                                                                                    className="p-1 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 transition-colors"
-                                                                                                    title="Editar Prolongamento"
-                                                                                                >
-                                                                                                    <Pencil className="w-3 h-3" />
-                                                                                                </button>
-                                                                                                <button
-                                                                                                    onClick={() => handleDeleteExt(rental, idx)}
-                                                                                                    className="p-1 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors"
-                                                                                                    title="Eliminar Prolongamento"
-                                                                                                >
-                                                                                                    <Trash2 className="w-3 h-3" />
-                                                                                                </button>
-                                                                                            </div>
-                                                                                        </td>
-                                                                                    </tr>
-                                                                                ))}
-                                                                            </tbody>
-                                                                        </table>
+                                                                    <div className="space-y-1.5">
+                                                                        {exts.map((ext: any, idx: number) => {
+                                                                            const realIdx = ext.originalIndex ?? idx;
+                                                                            const isPaid = ext.payment_status === 'paid';
+                                                                            return (
+                                                                                <div key={ext.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-800/80 bg-slate-900/30 px-3 py-2 print:border-black print:bg-white">
+                                                                                    <div className="flex items-center gap-3 min-w-0">
+                                                                                        <span className="font-semibold text-slate-200 text-xs whitespace-nowrap print:text-black">{ext.period}</span>
+                                                                                        <span className="font-black text-emerald-400 text-sm whitespace-nowrap print:text-black">{Number(ext.extra_value).toFixed(2)} €</span>
+                                                                                        {isPaid ? (
+                                                                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 whitespace-nowrap">✓ Pago</span>
+                                                                                        ) : (
+                                                                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-400 border border-red-500/20 whitespace-nowrap">Por Pagar</span>
+                                                                                        )}
+                                                                                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold whitespace-nowrap ${ext.received_by?.toLowerCase() === 'gabriel' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}`}>
+                                                                                            {ext.received_by || '-'}
+                                                                                        </span>
+                                                                                        {ext.payment_reference && (
+                                                                                            <span className="text-[10px] text-slate-500 truncate">{ext.payment_reference}</span>
+                                                                                        )}
+                                                                                        {ext.notes && (
+                                                                                            <span className="text-[10px] text-slate-500 truncate" title={ext.notes}>· {ext.notes}</span>
+                                                                                        )}
+                                                                                    </div>
+                                                                                    <div className="flex items-center gap-1.5 shrink-0 print:hidden">
+                                                                                        <button
+                                                                                            onClick={() => handleOpenEditExt(rental, realIdx)}
+                                                                                            className="p-1 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 transition-colors"
+                                                                                            title="Editar Prolongamento"
+                                                                                        >
+                                                                                            <Pencil className="w-3 h-3" />
+                                                                                        </button>
+                                                                                        <button
+                                                                                            onClick={() => handleDeleteExt(rental, realIdx)}
+                                                                                            className="p-1 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors"
+                                                                                            title="Eliminar Prolongamento"
+                                                                                        >
+                                                                                            <Trash2 className="w-3 h-3" />
+                                                                                        </button>
+                                                                                    </div>
+                                                                                </div>
+                                                                            );
+                                                                        })}
                                                                     </div>
                                                                 )}
                                                             </div>
@@ -1664,19 +1785,25 @@ export default function Dashboard() {
                                                                     <TableCell className="hidden md:table-cell text-right font-medium text-slate-400 print:text-black" colSpan={3}>Total Filtrado (Pago):</TableCell>
                                                                     <TableCell className="font-bold text-emerald-400 print:text-black print:font-bold">
                                                                         {displayRentals
-                                                                            .filter(r => r.payment_status === 'paid')
                                                                             .reduce((acc, r) => {
                                                                                 const baseVal = getOriginalMaterialsValue(r);
-                                                                                const realExtsSum = getExtensions(r)
-                                                                                    .filter((ext: any) => ext.type === 'prolongamento')
+                                                                                const baseReceived = r.payment_status === 'paid' ? baseVal : 0;
+                                                                                const prolongReceived = getExtensions(r)
+                                                                                    .filter((ext: any) => ext.type === 'prolongamento' && ext.payment_status !== 'pending')
                                                                                     .reduce((s: number, e: any) => s + getExtValue(e), 0);
-                                                                                const soma_prolongamentos = loadedExtensionsSum[r.id] !== undefined
-                                                                                    ? loadedExtensionsSum[r.id]
-                                                                                    : realExtsSum;
-                                                                                return acc + baseVal + soma_prolongamentos;
+                                                                                return acc + baseReceived + prolongReceived;
                                                                             }, 0)
                                                                             .toFixed(2)} €
                                                                     </TableCell>
+                                    <TableCell className="font-bold text-slate-300 print:text-black">
+                                        {formatCurrency(
+                                            displayRentals.reduce((acc, r) => {
+                                                const idaReceived = r.transport_ida_paid ? Number(r.transport_ida_value || 0) : 0;
+                                                const voltaReceived = r.transport_volta_paid ? Number(r.transport_volta_value || 0) : 0;
+                                                return acc + idaReceived + voltaReceived;
+                                            }, 0)
+                                        )}
+                                    </TableCell>
                                     <TableCell colSpan={2} className="print:hidden"></TableCell>
                                     <TableCell className="hidden print:table-cell" colSpan={1}></TableCell>
                                 </TableRow>
@@ -1756,6 +1883,10 @@ export default function Dashboard() {
                                                     <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-800 text-slate-400 border border-slate-700">
                                                         Cancelado
                                                     </span>
+                                                ) : rental.pickup_confirmed === false ? (
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                                                        Reserva
+                                                    </span>
                                                 ) : late ? (
                                                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-red-500/10 text-red-500 border border-red-500/20">
                                                         <AlertCircle className="w-2.5 h-2.5" /> Atrasado
@@ -1771,13 +1902,25 @@ export default function Dashboard() {
                                         {/* Linha 2: Prazo (26/05 → 29/05) + badge Pagamento à direita */}
                                         <div className="flex items-center justify-between gap-2 mb-2.5">
                                             <div className="text-xs text-slate-400">
-                                                <span className="font-semibold text-slate-300">
-                                                    {new Date(rental.pickup_date).toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' })}
-                                                </span>
-                                                <span className="text-slate-500 mx-1">→</span>
-                                                <span className="font-semibold text-slate-300">
-                                                    {new Date(getOriginalReturnDate(rental)).toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' })}
-                                                </span>
+                                                <div>
+                                                    <span className="font-semibold text-slate-300">
+                                                        {new Date(rental.pickup_date).toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' })}
+                                                    </span>
+                                                    <span className="text-slate-500 mx-1">→</span>
+                                                    <span className="font-semibold text-slate-300">
+                                                        {new Date(getOriginalReturnDate(rental)).toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' })}
+                                                    </span>
+                                                </div>
+                                                {(() => {
+                                                    const numProlong = getExtensions(rental).filter((ext: any) => ext.type === 'prolongamento').length;
+                                                    if (numProlong === 0) return null;
+                                                    return (
+                                                        <div className="text-[10px] text-amber-400 font-bold mt-0.5 flex items-center gap-1">
+                                                            <CalendarPlus className="w-3 h-3" />
+                                                            +{numProlong} até {new Date(getEffectiveReturnDate(rental)).toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' })}
+                                                        </div>
+                                                    );
+                                                })()}
                                             </div>
                                             <div className="shrink-0">
                                                 {rental.payment_status === 'paid' ? (
@@ -1825,6 +1968,19 @@ export default function Dashboard() {
                                                 {/* Dropdown de Ações Responsivo (abre para cima em mobile: bottom-full mb-1) */}
                                                 {activeDropdownId === rental.id && (
                                                     <div className="absolute right-0 bottom-full mb-1 w-48 rounded-xl border border-slate-850 bg-slate-900/95 backdrop-blur-md p-1.5 shadow-2xl z-30 min-w-[190px]">
+                                                        {rental.status === 'active' && rental.pickup_confirmed === false && (
+                                                            <button
+                                                                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-blue-400 hover:bg-blue-500/10 rounded-lg text-left transition-colors mb-1 cursor-pointer"
+                                                                onClick={async (e) => {
+                                                                    e.stopPropagation();
+                                                                    setActiveDropdownId(null);
+                                                                    await handleConfirmPickup(rental);
+                                                                }}
+                                                            >
+                                                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                                                Confirmar Retirada
+                                                            </button>
+                                                        )}
                                                         <button
                                                             className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-300 hover:text-slate-100 hover:bg-slate-800/80 rounded-lg text-left transition-colors cursor-pointer mb-1"
                                                             onClick={(e) => {
@@ -1932,15 +2088,17 @@ export default function Dashboard() {
                                                 ) : (
                                                     <div className="space-y-2">
                                                         {exts.map((ext, extIdx) => {
-                                                            const extReceivedColor = ext.received_by?.toLowerCase() === 'ricardo' 
-                                                                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' 
+                                                            const realIdx = ext.originalIndex ?? extIdx;
+                                                            const isPaid = ext.payment_status === 'paid';
+                                                            const extReceivedColor = ext.received_by?.toLowerCase() === 'ricardo'
+                                                                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                                                                 : ext.received_by?.toLowerCase() === 'gabriel'
                                                                     ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                                                                     : 'bg-slate-800 text-slate-400 border border-slate-700';
 
                                                             return (
-                                                                <div 
-                                                                    key={ext.id || `ext-${extIdx}`} 
+                                                                <div
+                                                                    key={ext.id || `ext-${extIdx}`}
                                                                     className="bg-slate-950/40 p-2.5 rounded-lg border border-slate-800/50 space-y-1.5 text-[11px]"
                                                                 >
                                                                     <div className="flex justify-between items-center">
@@ -1949,7 +2107,11 @@ export default function Dashboard() {
                                                                     </div>
                                                                     <div className="flex justify-between items-center">
                                                                         <div className="flex items-center gap-1">
-                                                                            <span className="text-slate-650">Recebido:</span>
+                                                                            {isPaid ? (
+                                                                                <span className="inline-flex items-center px-1.5 py-0.5 rounded-sm text-[9px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">✓ Pago</span>
+                                                                            ) : (
+                                                                                <span className="inline-flex items-center px-1.5 py-0.5 rounded-sm text-[9px] font-bold bg-red-500/10 text-red-400 border border-red-500/20">Por Pagar</span>
+                                                                            )}
                                                                             <span className={`px-1.5 py-0.5 rounded-sm font-semibold text-[9px] ${extReceivedColor}`}>
                                                                                 {ext.received_by}
                                                                             </span>
@@ -1958,7 +2120,7 @@ export default function Dashboard() {
                                                                             <button
                                                                                 onClick={(e) => {
                                                                                         e.stopPropagation();
-                                                                                        handleOpenEditExt(rental, extIdx, ext);
+                                                                                        handleOpenEditExt(rental, realIdx);
                                                                                 }}
                                                                                 className="p-1 text-slate-500 hover:text-slate-350 hover:bg-slate-800 rounded transition-colors"
                                                                                 title="Editar prolongamento"
@@ -1968,7 +2130,7 @@ export default function Dashboard() {
                                                                             <button
                                                                                 onClick={(e) => {
                                                                                         e.stopPropagation();
-                                                                                        handleDeleteExt(rental, extIdx);
+                                                                                        handleDeleteExt(rental, realIdx);
                                                                                 }}
                                                                                 className="p-1 text-red-500/70 hover:text-red-400 hover:bg-slate-800 rounded transition-colors"
                                                                                 title="Excluir prolongamento"
@@ -1977,6 +2139,9 @@ export default function Dashboard() {
                                                                             </button>
                                                                         </div>
                                                                     </div>
+                                                                    {ext.payment_reference && (
+                                                                        <div className="text-slate-500 leading-snug">Ref: {ext.payment_reference}</div>
+                                                                    )}
                                                                     {ext.notes && (
                                                                         <div className="text-slate-500 italic mt-1 leading-snug">
                                                                             Nota: {ext.notes}
@@ -2220,6 +2385,39 @@ export default function Dashboard() {
                                             className="bg-slate-950 border-slate-800 font-bold text-amber-400 h-11"
                                         />
                                     </div>
+                                </div>
+
+                                {/* Status de Pagamento */}
+                                <div>
+                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Status de Pagamento</label>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setEditPaymentStatus('paid')}
+                                            className={`h-10 rounded-lg text-xs font-bold uppercase tracking-wide border transition-colors ${editPaymentStatus === 'paid' ? 'bg-emerald-500/15 border-emerald-500/50 text-emerald-400' : 'bg-slate-950 border-slate-800 text-slate-500 hover:text-slate-300'}`}
+                                        >
+                                            ✓ Pago
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setEditPaymentStatus('pending')}
+                                            className={`h-10 rounded-lg text-xs font-bold uppercase tracking-wide border transition-colors ${editPaymentStatus === 'pending' ? 'bg-red-500/15 border-red-500/50 text-red-400' : 'bg-slate-950 border-slate-800 text-slate-500 hover:text-slate-300'}`}
+                                        >
+                                            Por Pagar
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Referência de Pagamento */}
+                                <div>
+                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Referência de Pagamento</label>
+                                    <Input
+                                        type="text"
+                                        placeholder="MBWay, transferência... (opcional)"
+                                        value={editPaymentReference}
+                                        onChange={e => setEditPaymentReference(e.target.value)}
+                                        className="bg-slate-950 border-slate-800 text-xs h-10"
+                                    />
                                 </div>
 
                                 {/* Recebido Por */}

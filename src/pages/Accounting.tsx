@@ -242,23 +242,30 @@ export default function Accounting() {
     };
 
     // Financial calculations (inclui prolongamentos nos totais)
+    // Só entra no relatório o que foi EFETIVAMENTE recebido: aluguer base conta se
+    // payment_status === 'paid'; cada prolongamento conta pelo seu próprio status
+    // (prolongamentos antigos sem esse campo são tratados como pagos, por compatibilidade);
+    // transporte conta Ida e Volta separadamente, cada um pelo seu próprio status.
     const totals = useMemo(() => {
         const paidRentals = filteredRentals.filter(r => r.payment_status === 'paid');
-        
-        // Soma os valores de base dos prolongamentos usando getExtValue (compatível com todos os formatos)
-        const extMaterials = paidRentals.reduce((acc, r) => {
-            return acc + getExtensions(r).reduce((s: number, e: any) => s + getExtValue(e), 0);
+
+        const extMaterials = filteredRentals.reduce((acc, r) => {
+            return acc + getExtensions(r)
+                .filter((e: any) => e.type === 'prolongamento' && e.payment_status !== 'pending')
+                .reduce((s: number, e: any) => s + getExtValue(e), 0);
         }, 0);
 
-        // O materials_value do Supabase já é o faturamento líquido acumulado total (inclui prolongamentos).
-        // Para obtermos o valor base inicial sem dupla contagem nos totais decompostos:
         const baseMaterials = paidRentals.reduce((acc, r) => {
             const extSum = getExtensions(r).reduce((s: number, e: any) => s + getExtValue(e), 0);
             return acc + Math.max(0, (r.materials_value || 0) - extSum);
         }, 0);
-        
-        // Transporte: apenas da linha principal, nunca dos prolongamentos
-        const transportTotal = paidRentals.reduce((acc, r) => acc + (Number(r.transport_value) || 0), 0);
+
+        const transportReceived = (r: any) => {
+            const ida = r.transport_ida_paid ? Number(r.transport_ida_value || 0) : 0;
+            const volta = r.transport_volta_paid ? Number(r.transport_volta_value || 0) : 0;
+            return ida + volta;
+        };
+        const transportTotal = filteredRentals.reduce((acc, r) => acc + transportReceived(r), 0);
         const materialsTotal = baseMaterials + extMaterials;
 
         return {
@@ -268,8 +275,8 @@ export default function Accounting() {
             depositsTotal: paidRentals.reduce((acc, r) => acc + (Number(r.deposit_value) || 0), 0),
             totalGross: paidRentals.reduce((acc, r) => acc + (Number(r.total_amount) || 0), 0),
             realRevenue: materialsTotal + transportTotal + paidRentals.reduce((acc, r) => acc + (Number(r.iva_materials) || 0) + (Number(r.iva_transport) || 0), 0),
-            receivedGabriel: paidRentals.filter(r => r.received_by === 'Gabriel').reduce((acc, r) => acc + (r.materials_value || 0) + (Number(r.transport_value) || 0), 0),
-            receivedRicardo: paidRentals.filter(r => r.received_by === 'Ricardo').reduce((acc, r) => acc + (r.materials_value || 0) + (Number(r.transport_value) || 0), 0),
+            receivedGabriel: filteredRentals.filter(r => r.received_by === 'Gabriel').reduce((acc, r) => acc + (r.payment_status === 'paid' ? (r.materials_value || 0) : 0) + transportReceived(r), 0),
+            receivedRicardo: filteredRentals.filter(r => r.received_by === 'Ricardo').reduce((acc, r) => acc + (r.payment_status === 'paid' ? (r.materials_value || 0) : 0) + transportReceived(r), 0),
             extMaterials
         };
     }, [filteredRentals]);
@@ -373,20 +380,20 @@ export default function Accounting() {
                         </Card>
                         <Card className="bg-slate-900 border-slate-800 border-l-4 border-l-emerald-500">
                              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                                <CardTitle className="text-sm font-bold text-slate-400">Parte Proprietário (80%)</CardTitle>
+                                <CardTitle className="text-sm font-bold text-slate-400">Parte Proprietário (70%)</CardTitle>
                                 <LayoutDashboard className="h-5 w-5 text-emerald-500" />
                             </CardHeader>
                             <CardContent>
-                                <div className="text-3xl font-black text-emerald-500">{(totals.materialsTotal * 0.8).toFixed(2)} €</div>
+                                <div className="text-3xl font-black text-emerald-500">{(totals.materialsTotal * 0.7).toFixed(2)} €</div>
                             </CardContent>
                         </Card>
                         <Card className="bg-slate-900 border-slate-800 border-l-4 border-l-blue-500">
                              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                                <CardTitle className="text-sm font-bold text-slate-400">Comissão Maywan (20%)</CardTitle>
+                                <CardTitle className="text-sm font-bold text-slate-400">Comissão Maywan (30%)</CardTitle>
                                 <TrendingUp className="h-5 w-5 text-blue-500" />
                             </CardHeader>
                             <CardContent>
-                                <div className="text-3xl font-black text-blue-500">{(totals.materialsTotal * 0.2).toFixed(2)} €</div>
+                                <div className="text-3xl font-black text-blue-500">{(totals.materialsTotal * 0.3).toFixed(2)} €</div>
                             </CardContent>
                         </Card>
                     </>
@@ -525,8 +532,8 @@ export default function Accounting() {
                                         <TableHead className="text-slate-300 font-bold uppercase text-[10px] tracking-widest print:hidden">Produtos</TableHead>
                                         <TableHead className="text-right text-slate-300 font-bold uppercase text-[10px] tracking-widest print:text-black print:text-right">Base (€)</TableHead>
                                         <TableHead className="text-right text-amber-500 font-bold uppercase text-[10px] tracking-widest print:text-black print:text-right">Transp (€)</TableHead>
-                                        <TableHead className="text-right text-emerald-500 font-bold uppercase text-[10px] tracking-widest print:hidden">Prop (80%)</TableHead>
-                                        <TableHead className="text-right text-blue-400 font-bold uppercase text-[10px] tracking-widest print:hidden">Comis (20%)</TableHead>
+                                        <TableHead className="text-right text-emerald-500 font-bold uppercase text-[10px] tracking-widest print:hidden">Prop (70%)</TableHead>
+                                        <TableHead className="text-right text-blue-400 font-bold uppercase text-[10px] tracking-widest print:hidden">Comis (30%)</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -621,8 +628,8 @@ export default function Accounting() {
                                                             )}
                                                         </TableCell>
                                                         <TableCell className="text-right font-bold text-amber-500 print:text-black print:text-right">{(Number(r.transport_value || 0)).toFixed(2).replace('.', ',')} €</TableCell>
-                                                        <TableCell className="text-right text-emerald-500/80 font-medium print:hidden">{(initialMatValue * 0.8).toFixed(2).replace('.', ',')} €</TableCell>
-                                                        <TableCell className="text-right text-blue-500 font-bold print:hidden">{(initialMatValue * 0.2).toFixed(2).replace('.', ',')} €</TableCell>
+                                                        <TableCell className="text-right text-emerald-500/80 font-medium print:hidden">{(initialMatValue * 0.7).toFixed(2).replace('.', ',')} €</TableCell>
+                                                        <TableCell className="text-right text-blue-500 font-bold print:hidden">{(initialMatValue * 0.3).toFixed(2).replace('.', ',')} €</TableCell>
                                                     </TableRow>
 
                                                     {/* Sublinhas de Prolongamento (tela) */}
@@ -687,13 +694,13 @@ export default function Accounting() {
                                                                 </TableCell>
                                                                 {/* TRANSP: sempre — (transporte cobrado uma única vez no aluguer principal) */}
                                                                 <TableCell className="text-right text-slate-600 print:text-black print:text-right">—</TableCell>
-                                                                {/* PROPOSTA 80%: sobre o valor base do prolongamento */}
+                                                                {/* PROPOSTA 70%: sobre o valor base do prolongamento */}
                                                                 <TableCell className="text-right text-emerald-500/50 print:hidden">
-                                                                    {extMat > 0 ? `${(extMat * 0.8).toFixed(2).replace('.', ',')} €` : <span className="text-slate-600">—</span>}
+                                                                    {extMat > 0 ? `${(extMat * 0.7).toFixed(2).replace('.', ',')} €` : <span className="text-slate-600">—</span>}
                                                                 </TableCell>
-                                                                {/* COMIS 20%: sobre o valor base do prolongamento */}
+                                                                {/* COMIS 30%: sobre o valor base do prolongamento */}
                                                                 <TableCell className="text-right text-blue-500/50 print:hidden">
-                                                                    {extMat > 0 ? `${(extMat * 0.2).toFixed(2).replace('.', ',')} €` : <span className="text-slate-600">—</span>}
+                                                                    {extMat > 0 ? `${(extMat * 0.3).toFixed(2).replace('.', ',')} €` : <span className="text-slate-600">—</span>}
                                                                 </TableCell>
                                                             </TableRow>
                                                         );
@@ -733,8 +740,8 @@ export default function Accounting() {
                                             )}
                                         </TableCell>
                                         <TableCell className="text-right text-amber-500 text-lg print:text-black print:text-right">{totals.transportTotal.toFixed(2).replace('.', ',')} €</TableCell>
-                                        <TableCell className="text-right text-emerald-500 text-lg print:hidden">{(totals.materialsTotal * 0.8).toFixed(2).replace('.', ',')} €</TableCell>
-                                        <TableCell className="text-right text-blue-500 text-lg print:hidden">{(totals.materialsTotal * 0.2).toFixed(2).replace('.', ',')} €</TableCell>
+                                        <TableCell className="text-right text-emerald-500 text-lg print:hidden">{(totals.materialsTotal * 0.7).toFixed(2).replace('.', ',')} €</TableCell>
+                                        <TableCell className="text-right text-blue-500 text-lg print:hidden">{(totals.materialsTotal * 0.3).toFixed(2).replace('.', ',')} €</TableCell>
                                     </TableRow>
                                 </TableBody>
                             </>
@@ -802,8 +809,8 @@ export default function Accounting() {
                 
                 {/* Print Only Summary for Partnership */}
                 {view === 'partnership' && (() => {
-                    const totalGabriel = (totals.materialsTotal * 0.8) + (totals.transportTotal / 2);
-                    const totalRicardo = (totals.materialsTotal * 0.2) + (totals.transportTotal / 2);
+                    const totalGabriel = (totals.materialsTotal * 0.7) + (totals.transportTotal * 0.7);
+                    const totalRicardo = (totals.materialsTotal * 0.3) + (totals.transportTotal * 0.3);
                     const diffGabriel = totalGabriel - totals.receivedGabriel;
                     const isRicardoToGabriel = diffGabriel >= 0;
                     const transferAmount = Math.abs(diffGabriel).toFixed(2).replace('.', ',');
@@ -817,12 +824,12 @@ export default function Accounting() {
                                 <div className="space-y-2">
                                     <h4 className="font-bold text-emerald-700 uppercase tracking-widest text-sm border-b border-emerald-200 pb-1">Parte Gabriel</h4>
                                     <div className="flex justify-between text-sm">
-                                        <span>Base (80%)</span>
-                                        <span className="font-medium">{(totals.materialsTotal * 0.8).toFixed(2).replace('.', ',')} €</span>
+                                        <span>Base Andaimes (70%)</span>
+                                        <span className="font-medium">{(totals.materialsTotal * 0.7).toFixed(2).replace('.', ',')} €</span>
                                     </div>
                                     <div className="flex justify-between text-sm">
-                                        <span>Transporte (50%)</span>
-                                        <span className="font-medium">{(totals.transportTotal / 2).toFixed(2).replace('.', ',')} €</span>
+                                        <span>Transporte (70%)</span>
+                                        <span className="font-medium">{(totals.transportTotal * 0.7).toFixed(2).replace('.', ',')} €</span>
                                     </div>
                                     <div className="flex justify-between text-base pt-2 mt-2 border-t border-slate-300 font-black text-emerald-800">
                                         <span>Total a Receber</span>
@@ -838,12 +845,12 @@ export default function Accounting() {
                                 <div className="space-y-2">
                                     <h4 className="font-bold text-blue-700 uppercase tracking-widest text-sm border-b border-blue-200 pb-1">Parte Ricardo</h4>
                                     <div className="flex justify-between text-sm">
-                                        <span>Base (20%)</span>
-                                        <span className="font-medium">{(totals.materialsTotal * 0.2).toFixed(2).replace('.', ',')} €</span>
+                                        <span>Base Andaimes (30%)</span>
+                                        <span className="font-medium">{(totals.materialsTotal * 0.3).toFixed(2).replace('.', ',')} €</span>
                                     </div>
                                     <div className="flex justify-between text-sm">
-                                        <span>Transporte (50%)</span>
-                                        <span className="font-medium">{(totals.transportTotal / 2).toFixed(2).replace('.', ',')} €</span>
+                                        <span>Transporte (30%)</span>
+                                        <span className="font-medium">{(totals.transportTotal * 0.3).toFixed(2).replace('.', ',')} €</span>
                                     </div>
                                     <div className="flex justify-between text-base pt-2 mt-2 border-t border-slate-300 font-black text-blue-800">
                                         <span>Total a Receber</span>
@@ -913,8 +920,8 @@ export default function Accounting() {
                                     className="bg-slate-950 border-emerald-500/20 text-lg font-black text-emerald-400 h-12"
                                 />
                                 <div className="flex gap-4 mt-1">
-                                    <p className="text-[9px] text-emerald-500/60">Proposta (80%): {(editValue * 0.8).toFixed(2)} €</p>
-                                    <p className="text-[9px] text-blue-500/60">Comissão (20%): {(editValue * 0.2).toFixed(2)} €</p>
+                                    <p className="text-[9px] text-emerald-500/60">Proposta (70%): {(editValue * 0.7).toFixed(2)} €</p>
+                                    <p className="text-[9px] text-blue-500/60">Comissão (30%): {(editValue * 0.3).toFixed(2)} €</p>
                                 </div>
                             </div>
 

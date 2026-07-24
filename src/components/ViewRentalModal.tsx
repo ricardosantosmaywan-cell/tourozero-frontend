@@ -24,6 +24,11 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
 
     const [liveTransport, setLiveTransport] = useState(0);
     const [liveDeposit, setLiveDeposit] = useState(0);
+    const [liveReservation, setLiveReservation] = useState(0);
+    const [liveTransportIda, setLiveTransportIda] = useState(0);
+    const [liveTransportIdaPaid, setLiveTransportIdaPaid] = useState(false);
+    const [liveTransportVolta, setLiveTransportVolta] = useState(0);
+    const [liveTransportVoltaPaid, setLiveTransportVoltaPaid] = useState(false);
     const [liveIvaMats, setLiveIvaMats] = useState(0);
     const [liveIvaTransp, setLiveIvaTransp] = useState(0);
     const [liveTotal, setLiveTotal] = useState(0);
@@ -36,6 +41,8 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
     const [editReturnDate, setEditReturnDate] = useState('');
     const [editReceivedBy, setEditReceivedBy] = useState('Ricardo');
     const [editNote, setEditNote] = useState('');
+    const [editPaymentStatus, setEditPaymentStatus] = useState<'paid' | 'pending'>('pending');
+    const [editPaymentReference, setEditPaymentReference] = useState('');
     const [isSavingExt, setIsSavingExt] = useState(false);
 
     useEffect(() => {
@@ -49,11 +56,17 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
             try {
                 const { data: rentData } = await supabase
                     .from('rentals')
-                    .select('transport_value, deposit_value, iva_materials, iva_transport, total_amount, observacoes, received_by, extensions_history')
+                    .select('transport_value, deposit_value, reservation_value, transport_ida_value, transport_ida_paid, transport_volta_value, transport_volta_paid, iva_materials, iva_transport, total_amount, observacoes, received_by, extensions_history, payment_status')
                     .eq('id', rental.id).single();
                 if (rentData) {
-                    setLiveTransport(Number(rentData.transport_value || 0));
+                    const transport = Number(rentData.transport_value || 0);
+                    setLiveTransport(transport);
                     setLiveDeposit(Number(rentData.deposit_value || 0));
+                    setLiveReservation(Number(rentData.reservation_value || 0));
+                    setLiveTransportIda(Number(rentData.transport_ida_value ?? transport));
+                    setLiveTransportIdaPaid(Boolean(rentData.transport_ida_paid ?? (rentData.payment_status === 'paid')));
+                    setLiveTransportVolta(Number(rentData.transport_volta_value || 0));
+                    setLiveTransportVoltaPaid(Boolean(rentData.transport_volta_paid || false));
                     setLiveIvaMats(Number(rentData.iva_materials || 0));
                     setLiveIvaTransp(Number(rentData.iva_transport || 0));
                     setLiveTotal(Number(rentData.total_amount || 0));
@@ -110,7 +123,7 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
         try {
             const exts = [...liveHistory];
             const orig = exts[editingExt.extIndex];
-            exts[editingExt.extIndex] = { ...orig, extra_materials: editValue, extra_value: editValue, new_value: Number((Number(orig.old_value || 0) + editValue).toFixed(2)), old_return_date: editStartDate, new_return_date: editReturnDate, received_by: editReceivedBy, note: editNote };
+            exts[editingExt.extIndex] = { ...orig, extra_materials: editValue, extra_value: editValue, new_value: Number((Number(orig.old_value || 0) + editValue).toFixed(2)), old_return_date: editStartDate, new_return_date: editReturnDate, received_by: editReceivedBy, note: editNote, payment_status: editPaymentStatus, payment_reference: editPaymentReference };
             await updateRentalPartial(rental.id, recalcRentalAfterExtChange(rental, exts));
             setEditingExt(null);
             setRefreshKey(prev => prev + 1);
@@ -119,11 +132,11 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
 
     const handleSaveNotes = () => { updateRentalPartial(rental.id, { observacoes: notes }); onClose(); };
 
-    const handleConfirmProlong = async (daysDiff: number, extraValue: number, note: string, newItems: any[], newReturnDateStr: string, depositValue: number, transportValue: number, receivedBy: string) => {
+    const handleConfirmProlong = async (daysDiff: number, extraValue: number, note: string, newItems: any[], newReturnDateStr: string, depositValue: number, transportValue: number, receivedBy: string, paymentStatus: 'paid' | 'pending' = 'pending', paymentReference: string = '') => {
         const oldTotal = Number(rental.total_amount || 0);
         const newTotal = oldTotal + extraValue + (depositValue - Number(rental.deposit_value || 0)) + (transportValue - Number(rental.transport_value || 0));
         const newWeeksTotal = Number((Number(rental.semanas || 0) + daysDiff / 7).toFixed(1));
-        const extensionEntry = { date: new Date().toISOString(), type: 'prolongamento', days_added: daysDiff, extra_materials: extraValue, old_return_date: rental.return_date, new_return_date: newReturnDateStr, old_value: oldTotal, new_value: newTotal, old_deposit: Number(rental.deposit_value || 0), new_deposit: depositValue, old_transport: Number(rental.transport_value || 0), new_transport: transportValue, received_by: receivedBy || 'Ricardo', note, added_items: newItems.map(it => ({ name: it.product.name, quantity: it.quantity })) };
+        const extensionEntry = { date: new Date().toISOString(), type: 'prolongamento', days_added: daysDiff, extra_materials: extraValue, old_return_date: rental.return_date, new_return_date: newReturnDateStr, old_value: oldTotal, new_value: newTotal, old_deposit: Number(rental.deposit_value || 0), new_deposit: depositValue, old_transport: Number(rental.transport_value || 0), new_transport: transportValue, received_by: receivedBy || 'Ricardo', note, payment_status: paymentStatus, payment_reference: paymentReference, added_items: newItems.map(it => ({ name: it.product.name, quantity: it.quantity })) };
         try {
             await updateRentalPartial(rental.id, { return_date: newReturnDateStr, total_amount: Number(newTotal.toFixed(2)), deposit_value: Number(depositValue.toFixed(2)), transport_value: Number(transportValue.toFixed(2)), received_by: receivedBy || 'Ricardo', semanas: newWeeksTotal, rental_duration_value: newWeeksTotal, extensions_history: [...(rental.extensions_history || []), extensionEntry] });
             if (newItems && newItems.length > 0) {
@@ -256,10 +269,30 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
                                         <td className="px-4 py-2 text-right font-semibold text-slate-100">{fmtMoney(liveMaterials)}</td>
                                     </tr>
                                 )}
-                                {liveTransport > 0 && (
+                                {liveTransportIda > 0 && (
                                     <tr className="border-t border-slate-700/40">
-                                        <td className="px-4 py-2 text-slate-300">Transporte</td>
-                                        <td className="px-4 py-2 text-right font-semibold text-slate-100">{fmtMoney(liveTransport)}</td>
+                                        <td className="px-4 py-2 text-slate-300">
+                                            Transporte (Ida)
+                                            {liveTransportIdaPaid ? (
+                                                <span className="ml-1.5 text-[9px] font-bold text-emerald-400">✓ Pago</span>
+                                            ) : (
+                                                <span className="ml-1.5 text-[9px] font-bold text-red-400">Pendente</span>
+                                            )}
+                                        </td>
+                                        <td className="px-4 py-2 text-right font-semibold text-slate-100">{fmtMoney(liveTransportIda)}</td>
+                                    </tr>
+                                )}
+                                {liveTransportVolta > 0 && (
+                                    <tr className="border-t border-slate-700/40">
+                                        <td className="px-4 py-2 text-slate-300">
+                                            Transporte (Volta)
+                                            {liveTransportVoltaPaid ? (
+                                                <span className="ml-1.5 text-[9px] font-bold text-emerald-400">✓ Pago</span>
+                                            ) : (
+                                                <span className="ml-1.5 text-[9px] font-bold text-red-400">Pendente</span>
+                                            )}
+                                        </td>
+                                        <td className="px-4 py-2 text-right font-semibold text-slate-100">{fmtMoney(liveTransportVolta)}</td>
                                     </tr>
                                 )}
                                 {liveDeposit > 0 && (
@@ -284,6 +317,18 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
                                     <td className="px-4 py-3 font-bold text-slate-100">Total</td>
                                     <td className="px-4 py-3 text-right font-black text-amber-400 text-lg">{fmtMoney(liveTotal)}</td>
                                 </tr>
+                                {liveReservation > 0 && (
+                                    <>
+                                        <tr className="border-t border-slate-700/40">
+                                            <td className="px-4 py-2 text-blue-400">Reserva (Sinal já pago)</td>
+                                            <td className="px-4 py-2 text-right font-semibold text-blue-400">- {fmtMoney(liveReservation)}</td>
+                                        </tr>
+                                        <tr className="border-t-2 border-slate-600 bg-slate-900/40">
+                                            <td className="px-4 py-3 font-bold text-slate-100">Saldo a Pagar</td>
+                                            <td className="px-4 py-3 text-right font-black text-amber-400 text-lg">{fmtMoney(liveTotal - liveReservation)}</td>
+                                        </tr>
+                                    </>
+                                )}
                             </tbody>
                         </table>
                         </div>
@@ -295,25 +340,37 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
                     </div>
 
                     {/* Prolongamentos */}
-                    {liveHistory.length > 0 && (
+                    {liveHistory.some((ext: any) => ext.type === 'prolongamento') && (
                         <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 p-4">
                             <p className="text-[10px] font-bold text-amber-500 uppercase tracking-wider mb-2">Prolongamentos</p>
                             <div className="space-y-2">
-                                {liveHistory.map((ext: any, idx: number) => (
-                                    <div key={idx} className="flex items-center justify-between text-xs bg-slate-900/60 rounded-lg px-3 py-2 border border-slate-700/30">
-                                        <div>
-                                            <span className="text-slate-300 font-semibold">
-                                                {ext.old_return_date ? `${fmtDateShort(ext.old_return_date)} → ${fmtDateShort(ext.new_return_date)}` : `Prolongamento #${idx + 1}`}
-                                            </span>
-                                            {ext.note && <p className="text-slate-500 mt-0.5">{ext.note}</p>}
+                                {liveHistory.map((ext: any, idx: number) => {
+                                    if (ext.type !== 'prolongamento') return null;
+                                    const isPaid = ext.payment_status === 'paid';
+                                    return (
+                                        <div key={idx} className="text-xs bg-slate-900/60 rounded-lg px-3 py-2 border border-slate-700/30 space-y-1">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-slate-300 font-semibold">
+                                                    {ext.old_return_date ? `${fmtDateShort(ext.old_return_date)} → ${fmtDateShort(ext.new_return_date)}` : `Prolongamento #${idx + 1}`}
+                                                </span>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-bold text-emerald-400">+{fmtMoney(getExtValue(ext))}</span>
+                                                    <button onClick={() => { setEditValue(getExtValue(ext)); setEditStartDate(ext.old_return_date?.split('T')[0] || ''); setEditReturnDate(ext.new_return_date?.split('T')[0] || ''); setEditReceivedBy(ext.received_by || 'Ricardo'); setEditNote(ext.note || ''); setEditPaymentStatus(ext.payment_status || 'pending'); setEditPaymentReference(ext.payment_reference || ''); setEditingExt({ extIndex: idx }); }} className="text-slate-500 hover:text-amber-400 transition-colors"><Pencil className="w-3 h-3" /></button>
+                                                    <button onClick={() => handleDeleteExt(idx)} className="text-slate-500 hover:text-red-400 transition-colors"><X className="w-3 h-3" /></button>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-1.5 flex-wrap">
+                                                {isPaid ? (
+                                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">✓ Pago</span>
+                                                ) : (
+                                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-red-500/10 text-red-400 border border-red-500/20">Por Pagar</span>
+                                                )}
+                                                {ext.payment_reference && <span className="text-slate-500 text-[10px]">{ext.payment_reference}</span>}
+                                            </div>
+                                            {ext.note && <p className="text-slate-500">{ext.note}</p>}
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            <span className="font-bold text-emerald-400">+{fmtMoney(getExtValue(ext))}</span>
-                                            <button onClick={() => { setEditValue(getExtValue(ext)); setEditStartDate(ext.old_return_date?.split('T')[0] || ''); setEditReturnDate(ext.new_return_date?.split('T')[0] || ''); setEditReceivedBy(ext.received_by || 'Ricardo'); setEditNote(ext.note || ''); setEditingExt({ extIndex: idx }); }} className="text-slate-500 hover:text-amber-400 transition-colors"><Pencil className="w-3 h-3" /></button>
-                                            <button onClick={() => handleDeleteExt(idx)} className="text-slate-500 hover:text-red-400 transition-colors"><X className="w-3 h-3" /></button>
-                                        </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </div>
                     )}
@@ -382,6 +439,17 @@ export function ViewRentalModal({ isOpen, onClose, rental, onEdit, onDelete }: V
                                     <label className="block text-[10px] font-bold text-amber-400 uppercase tracking-widest mb-1">Data Término</label>
                                     <Input type="date" value={editReturnDate} onChange={e => setEditReturnDate(e.target.value)} className="bg-slate-950 border-slate-800 font-bold text-amber-400 h-11" />
                                 </div>
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Status de Pagamento</label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <button type="button" onClick={() => setEditPaymentStatus('paid')} className={`h-10 rounded-lg text-xs font-bold uppercase tracking-wide border transition-colors ${editPaymentStatus === 'paid' ? 'bg-emerald-500/15 border-emerald-500/50 text-emerald-400' : 'bg-slate-950 border-slate-800 text-slate-500 hover:text-slate-300'}`}>✓ Pago</button>
+                                    <button type="button" onClick={() => setEditPaymentStatus('pending')} className={`h-10 rounded-lg text-xs font-bold uppercase tracking-wide border transition-colors ${editPaymentStatus === 'pending' ? 'bg-red-500/15 border-red-500/50 text-red-400' : 'bg-slate-950 border-slate-800 text-slate-500 hover:text-slate-300'}`}>Por Pagar</button>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Referência de Pagamento</label>
+                                <Input type="text" placeholder="MBWay, transferência... (opcional)" value={editPaymentReference} onChange={e => setEditPaymentReference(e.target.value)} className="bg-slate-950 border-slate-800 text-xs h-10" />
                             </div>
                             <div>
                                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Recebido Por</label>

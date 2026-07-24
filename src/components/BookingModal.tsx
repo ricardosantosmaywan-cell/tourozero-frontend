@@ -28,8 +28,12 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
     const [selectedProducts, setSelectedProducts] = useState<{ product: any, quantity: number }[]>([]);
     const [selectedProductId, setSelectedProductId] = useState<string>('');
     const [manualTotal, setManualTotal] = useState<number>(0);
-    const [transportFee, setTransportFee] = useState<number>(0);
+    const [transportIdaValue, setTransportIdaValue] = useState<number>(0);
+    const [transportIdaPaid, setTransportIdaPaid] = useState<boolean>(false);
+    const [transportVoltaValue, setTransportVoltaValue] = useState<number>(0);
+    const [transportVoltaPaid, setTransportVoltaPaid] = useState<boolean>(false);
     const [depositFee, setDepositFee] = useState<number>(0);
+    const [reservationValue, setReservationValue] = useState<number>(0);
     const [ivaMaterials, setIvaMaterials] = useState<number>(0);
     const [ivaTransport, setIvaTransport] = useState<number>(0);
     const [durationValue, setDurationValue] = useState<number>(1);
@@ -48,6 +52,8 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
     const [showDropdown, setShowDropdown] = useState(false);
     const searchRef = useRef<HTMLDivElement>(null);
 
+    const transportFee = (transportIdaValue || 0) + (transportVoltaValue || 0);
+
     const filteredCustomerSuggestions = nifSearch.trim().length >= 1
         ? customers.filter(c =>
             c.full_name?.toLowerCase().includes(nifSearch.toLowerCase()) ||
@@ -64,8 +70,12 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
         setSelectedProducts([]);
         setSelectedProductId('');
         setManualTotal(0);
-        setTransportFee(0);
+        setTransportIdaValue(0);
+        setTransportIdaPaid(false);
+        setTransportVoltaValue(0);
+        setTransportVoltaPaid(false);
         setDepositFee(0);
+        setReservationValue(0);
         setIvaMaterials(0);
         setIvaTransport(0);
         setPaymentStatus('pending');
@@ -116,9 +126,13 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
                 // Calcular Subtotal de Materiais (Líquido)
                 const subRef = propTotal > 0 ? propTotal - propTransport - propDeposit - propIvaMatsEuro - propIvaTranspEuro : 0;
                 setManualTotal(subRef);
-                setTransportFee(propTransport);
+                setTransportIdaValue(Number(rentalToEdit.transport_ida_value ?? propTransport));
+                setTransportIdaPaid(Boolean(rentalToEdit.transport_ida_paid ?? (rentalToEdit.payment_status === 'paid')));
+                setTransportVoltaValue(Number(rentalToEdit.transport_volta_value || 0));
+                setTransportVoltaPaid(Boolean(rentalToEdit.transport_volta_paid || false));
                 setDepositFee(propDeposit);
-                
+                setReservationValue(Number(rentalToEdit.reservation_value || 0));
+
                 // Tentar reverter para percentagem para visualização
                 setIvaMaterials(subRef > 0 ? Math.round((propIvaMatsEuro / subRef) * 100) : 0);
                 setIvaTransport(propTransport > 0 ? Math.round((propIvaTranspEuro / propTransport) * 100) : 0);
@@ -134,7 +148,7 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
                 try {
                     const { data: freshRental } = await supabase
                         .from('rentals')
-                        .select('transport_value, deposit_value, iva_materials, iva_transport, total_amount, observacoes, received_by, extensions_history')
+                        .select('transport_value, deposit_value, reservation_value, transport_ida_value, transport_ida_paid, transport_volta_value, transport_volta_paid, iva_materials, iva_transport, total_amount, observacoes, received_by, extensions_history, payment_status')
                         .eq('id', rentalToEdit.id)
                         .single();
 
@@ -144,12 +158,16 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
                         const ivaMatsEuro = Number(freshRental.iva_materials || 0);
                         const ivaTranspEuro = Number(freshRental.iva_transport || 0);
                         const total = Number(freshRental.total_amount || 0);
-                        
+
                         const subRef = total > 0 ? total - transport - deposit - ivaMatsEuro - ivaTranspEuro : 0;
                         setManualTotal(subRef);
-                        setTransportFee(transport);
+                        setTransportIdaValue(Number(freshRental.transport_ida_value ?? transport));
+                        setTransportIdaPaid(Boolean(freshRental.transport_ida_paid ?? (freshRental.payment_status === 'paid')));
+                        setTransportVoltaValue(Number(freshRental.transport_volta_value || 0));
+                        setTransportVoltaPaid(Boolean(freshRental.transport_volta_paid || false));
                         setDepositFee(deposit);
-                        
+                        setReservationValue(Number(freshRental.reservation_value || 0));
+
                         // Reverter para percentagem
                         setIvaMaterials(subRef > 0 ? Math.round((ivaMatsEuro / subRef) * 100) : 0);
                         setIvaTransport(transport > 0 ? Math.round((ivaTranspEuro / transport) * 100) : 0);
@@ -229,8 +247,15 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
             return;
         }
 
-        // Validação de Stock
-        const activeRentals = rentals.filter((r: any) => r.status === 'active');
+        if (!pickupDate || !returnDate) {
+            setFormError('Selecione as datas de recolha e entrega.');
+            return;
+        }
+
+        // Validação de Stock: só conta aluguéis ativos cujo período se sobrepõe
+        // ao novo agendamento (datas em formato YYYY-MM-DD comparam cronologicamente).
+        const overlapsPeriod = (r: any) => r.pickup_date <= returnDate && pickupDate <= r.return_date;
+        const activeRentals = rentals.filter((r: any) => r.status === 'active' && overlapsPeriod(r));
         for (const sp of finalProducts) {
             const currentProduct = products.find(p => p.id === sp.product.id);
             if (!currentProduct) continue;
@@ -249,14 +274,9 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
             }
 
             if (sp.quantity - previouslyReserved > availableStock) {
-                setFormError(`A quantidade solicitada para "${currentProduct.name}" está indisponível. Apenas ${availableStock + previouslyReserved} em stock.`);
+                setFormError(`A quantidade solicitada para "${currentProduct.name}" está indisponível para este período. Apenas ${availableStock + previouslyReserved} em stock.`);
                 return;
             }
-        }
-
-        if (!pickupDate || !returnDate) {
-            setFormError('Selecione as datas de recolha e entrega.');
-            return;
         }
 
         let customerToUse: Customer | null = selectedCustomer;
@@ -293,6 +313,11 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
             total_amount: totalPayload,
             transport_value: transportFee || 0,
             deposit_value: depositFee || 0,
+            reservation_value: reservationValue || 0,
+            transport_ida_value: transportIdaValue || 0,
+            transport_ida_paid: transportIdaPaid,
+            transport_volta_value: transportVoltaValue || 0,
+            transport_volta_paid: transportVoltaPaid,
             iva_materials: calcIvaMats,
             iva_transport: calcIvaTransp,
             observacoes: notes,
@@ -620,17 +645,6 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
                                 />
                             </div>
                             <div>
-                                <label className="block text-[9px] font-bold text-slate-500 uppercase mb-0.5">Transp. €</label>
-                                <Input
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
-                                    value={transportFee === 0 && !rentalToEdit ? '' : transportFee}
-                                    onChange={(e) => setTransportFee(parseFloat(e.target.value) || 0)}
-                                    className="h-8 text-xs px-1 border-slate-700 bg-slate-900 focus:ring-amber-500"
-                                />
-                            </div>
-                            <div>
                                 <label className="block text-[9px] font-bold text-slate-500 uppercase mb-0.5">Caução €</label>
                                 <Input
                                     type="number"
@@ -640,6 +654,68 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
                                     onChange={(e) => setDepositFee(parseFloat(e.target.value) || 0)}
                                     className="h-8 text-xs px-1 border-slate-700 bg-slate-900 focus:ring-emerald-500"
                                 />
+                            </div>
+                            <div>
+                                <label className="block text-[9px] font-bold text-blue-400 uppercase mb-0.5">Reserva (Sinal) €</label>
+                                <Input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={reservationValue === 0 && !rentalToEdit ? '' : reservationValue}
+                                    onChange={(e) => setReservationValue(parseFloat(e.target.value) || 0)}
+                                    className="h-8 text-xs px-1 border-blue-500/30 bg-slate-900 focus:ring-blue-500"
+                                    placeholder="0.00"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 mt-2">
+                            <div>
+                                <div className="flex items-center justify-between mb-0.5">
+                                    <label className="block text-[9px] font-bold text-slate-500 uppercase">Transp. Ida €</label>
+                                    <label className="flex items-center gap-1 text-[9px] font-semibold text-slate-400 cursor-pointer select-none">
+                                        <input
+                                            type="checkbox"
+                                            checked={transportIdaPaid}
+                                            onChange={(e) => setTransportIdaPaid(e.target.checked)}
+                                            className="h-3 w-3 accent-emerald-500 cursor-pointer"
+                                        />
+                                        Pago
+                                    </label>
+                                </div>
+                                <Input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={transportIdaValue === 0 && !rentalToEdit ? '' : transportIdaValue}
+                                    onChange={(e) => setTransportIdaValue(parseFloat(e.target.value) || 0)}
+                                    className="h-8 text-xs px-1 border-slate-700 bg-slate-900 focus:ring-amber-500"
+                                />
+                            </div>
+                            <div>
+                                <div className="flex items-center justify-between mb-0.5">
+                                    <label className="block text-[9px] font-bold text-slate-500 uppercase">Transp. Volta €</label>
+                                    <label className="flex items-center gap-1 text-[9px] font-semibold text-slate-400 cursor-pointer select-none">
+                                        <input
+                                            type="checkbox"
+                                            checked={transportVoltaPaid}
+                                            onChange={(e) => setTransportVoltaPaid(e.target.checked)}
+                                            className="h-3 w-3 accent-emerald-500 cursor-pointer"
+                                        />
+                                        Pago
+                                    </label>
+                                </div>
+                                <Input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={transportVoltaValue === 0 && !rentalToEdit ? '' : transportVoltaValue}
+                                    onChange={(e) => setTransportVoltaValue(parseFloat(e.target.value) || 0)}
+                                    className={`h-8 text-xs px-1 bg-slate-900 focus:ring-amber-500 ${transportVoltaValue > 0 && !transportVoltaPaid ? 'border-red-500/40' : 'border-slate-700'}`}
+                                />
+                                {transportVoltaValue > 0 && !transportVoltaPaid && (
+                                    <p className="text-[8px] text-red-400 mt-0.5 font-semibold">Falta cobrar a volta</p>
+                                )}
                             </div>
                         </div>
 
@@ -702,8 +778,22 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
                                 </div>
                             </div>
                             <div className="flex flex-col items-end">
-                                <span className="text-[9px] font-bold text-slate-500 uppercase">Total a Pagar</span>
-                                <span className="text-xl font-black text-amber-500 leading-none">{(manualTotal + transportFee + depositFee + (manualTotal * (ivaMaterials / 100)) + (transportFee * (ivaTransport / 100))).toFixed(2)} €</span>
+                                {(() => {
+                                    const totalAluguel = manualTotal + transportFee + depositFee + (manualTotal * (ivaMaterials / 100)) + (transportFee * (ivaTransport / 100));
+                                    const saldoAPagar = totalAluguel - (reservationValue || 0);
+                                    return (
+                                        <>
+                                            {reservationValue > 0 && (
+                                                <>
+                                                    <span className="text-[9px] text-slate-500">Total: {totalAluguel.toFixed(2)} €</span>
+                                                    <span className="text-[9px] text-blue-400">- Reserva: {reservationValue.toFixed(2)} €</span>
+                                                </>
+                                            )}
+                                            <span className="text-[9px] font-bold text-slate-500 uppercase">{reservationValue > 0 ? 'Saldo a Pagar' : 'Total a Pagar'}</span>
+                                            <span className="text-xl font-black text-amber-500 leading-none">{saldoAPagar.toFixed(2)} €</span>
+                                        </>
+                                    );
+                                })()}
                             </div>
                         </div>
                     </div>

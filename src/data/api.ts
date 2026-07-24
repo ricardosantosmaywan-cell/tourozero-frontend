@@ -51,10 +51,16 @@ export interface Rental {
     observacoes?: string;
     transport_value?: number;
     deposit_value?: number;
+    reservation_value?: number;
+    transport_ida_value?: number;
+    transport_ida_paid?: boolean;
+    transport_volta_value?: number;
+    transport_volta_paid?: boolean;
     materials_value?: number;
     iva_materials?: number;
     iva_transport?: number;
     payment_status?: 'pending' | 'paid';
+    pickup_confirmed?: boolean;
     received_by?: string;
     rental_duration_type?: 'dia' | 'semana';
     rental_duration_value?: number;
@@ -346,7 +352,9 @@ export function useGlobalRentals() {
                 const ivaMats = Number(r.iva_materials || 0);
                 const ivaTransp = Number(r.iva_transport || 0);
                 const total = Number(r.total_amount || 0);
-                
+                const transportIda = Number(r.transport_ida_value ?? transport);
+                const transportVolta = Number(r.transport_volta_value || 0);
+
                 return {
                     id: r.id,
                     customer_id: r.customer_id,
@@ -360,10 +368,16 @@ export function useGlobalRentals() {
                     observacoes: r.observacoes,
                     transport_value: transport,
                     deposit_value: deposit,
+                    reservation_value: Number(r.reservation_value || 0),
+                    transport_ida_value: transportIda,
+                    transport_ida_paid: r.transport_ida_paid ?? (r.payment_status === 'paid'),
+                    transport_volta_value: transportVolta,
+                    transport_volta_paid: r.transport_volta_paid ?? false,
                     iva_materials: ivaMats,
                     iva_transport: ivaTransp,
                     materials_value: total - transport - deposit - ivaMats - ivaTransp, // Faturamento Líquido (Real)
                     payment_status: r.payment_status || 'pending',
+                    pickup_confirmed: r.pickup_confirmed ?? true,
                     received_by: r.received_by || 'Não definido',
                     rental_duration_type: r.rental_duration_type || 'semana',
                     rental_duration_value: r.rental_duration_value || r.semanas || 1,
@@ -395,6 +409,12 @@ export function useGlobalRentals() {
 
     async function addRental(newRentalData: any) {
         try {
+            // Reservas com recolha numa data futura só descontam o stock quando a
+            // retirada for confirmada (ver confirmPickup). Recolha hoje/passado
+            // desconta imediatamente, como sempre funcionou.
+            const todayStr = new Date().toISOString().split('T')[0];
+            const pickupConfirmed = !newRentalData.pickup_date || newRentalData.pickup_date <= todayStr;
+
             const rentalPayload = {
                 customer_id: newRentalData.customers?.id || newRentalData.customer_id,
                 pickup_date: newRentalData.pickup_date,
@@ -406,13 +426,19 @@ export function useGlobalRentals() {
                 observacoes: newRentalData.observacoes,
                 transport_value: newRentalData.transport_value || 0,
                 deposit_value: newRentalData.deposit_value || 0,
+                reservation_value: newRentalData.reservation_value || 0,
+                transport_ida_value: newRentalData.transport_ida_value || 0,
+                transport_ida_paid: newRentalData.transport_ida_paid ?? false,
+                transport_volta_value: newRentalData.transport_volta_value || 0,
+                transport_volta_paid: newRentalData.transport_volta_paid ?? false,
                 iva_materials: newRentalData.iva_materials || 0,
                 iva_transport: newRentalData.iva_transport || 0,
                 payment_status: newRentalData.payment_status || 'pending',
+                pickup_confirmed: pickupConfirmed,
                 received_by: newRentalData.received_by || 'Não definido',
                 rental_duration_type: newRentalData.rental_duration_type || 'semana',
                 rental_duration_value: newRentalData.rental_duration_value || 1,
-                extensions_history: newRentalData.extensions_history || [] 
+                extensions_history: newRentalData.extensions_history || []
             };
 
             const { data: insertedRental, error: rentalError } = await supabase.from('rentals').insert([rentalPayload]).select().single();
@@ -428,7 +454,7 @@ export function useGlobalRentals() {
                 const { error: itemsError } = await supabase.from('rental_items').insert(itemsPayload);
                 if (itemsError) throw new Error(itemsError.message);
 
-                if (rentalPayload.status === 'active') {
+                if (rentalPayload.status === 'active' && pickupConfirmed) {
                     for (const it of newRentalData.items) {
                         const prodId = it.product?.id || it.product_id;
                         const { data: prodData } = await supabase.from('products').select('available').eq('id', prodId).single();
@@ -452,10 +478,12 @@ export function useGlobalRentals() {
             // para evitar limpar o agendamento por erro de carregamento do modal.
             const hasItemsInPayload = updatedData.items && updatedData.items.length > 0;
 
-            const { data: oldRental } = await supabase.from('rentals').select('status').eq('id', id).single();
+            const { data: oldRental } = await supabase.from('rentals').select('status, pickup_confirmed').eq('id', id).single();
+            const wasConfirmed = oldRental?.pickup_confirmed ?? true;
 
-            // Só mexemos no stock se o agendamento estava ativo
-            if (oldRental && oldRental.status === 'active' && hasItemsInPayload) {
+            // Só mexemos no stock se o agendamento estava ativo e a retirada já tinha sido
+            // confirmada (reservas futuras ainda não confirmadas nunca descontaram o stock)
+            if (oldRental && oldRental.status === 'active' && wasConfirmed && hasItemsInPayload) {
                 const { data: currentItems } = await supabase.from('rental_items').select('*').eq('rental_id', id);
                 if (currentItems) {
                     for (const item of currentItems) {
@@ -482,6 +510,11 @@ export function useGlobalRentals() {
                 observacoes: updatedData.observacoes,
                 transport_value: updatedData.transport_value || 0,
                 deposit_value: updatedData.deposit_value || 0,
+                reservation_value: updatedData.reservation_value || 0,
+                transport_ida_value: updatedData.transport_ida_value || 0,
+                transport_ida_paid: updatedData.transport_ida_paid ?? false,
+                transport_volta_value: updatedData.transport_volta_value || 0,
+                transport_volta_paid: updatedData.transport_volta_paid ?? false,
                 iva_materials: updatedData.iva_materials || 0,
                 iva_transport: updatedData.iva_transport || 0,
                 payment_status: updatedData.payment_status || 'pending',
@@ -506,7 +539,7 @@ export function useGlobalRentals() {
                 }));
                 await supabase.from('rental_items').insert(itemsPayload);
 
-                if (updatedData.status === 'active') {
+                if (updatedData.status === 'active' && wasConfirmed) {
                     for (const it of updatedData.items) {
                         const prodId = it.product?.id || it.product_id;
                         const { data: p } = await supabase.from('products').select('available').eq('id', prodId).single();
@@ -526,9 +559,10 @@ export function useGlobalRentals() {
 
     async function deleteRental(id: string) {
         try {
-            // Estornar Stock antes de deletar
-            const { data: oldRental } = await supabase.from('rentals').select('status').eq('id', id).single();
-            if (oldRental && oldRental.status === 'active') {
+            // Estornar Stock antes de deletar (só se a retirada já tinha sido confirmada,
+            // ou seja, o stock realmente chegou a ser descontado)
+            const { data: oldRental } = await supabase.from('rentals').select('status, pickup_confirmed').eq('id', id).single();
+            if (oldRental && oldRental.status === 'active' && (oldRental.pickup_confirmed ?? true)) {
                 const { data: oldItems } = await supabase.from('rental_items').select('*').eq('rental_id', id);
                 if (oldItems) {
                     for (const item of oldItems) {
@@ -554,10 +588,12 @@ export function useGlobalRentals() {
         try {
             // Se houver alteração de status no partialData, lidamos com a transição de stock
             if (partialData.status !== undefined) {
-                const { data: oldRental } = await supabase.from('rentals').select('status').eq('id', id).single();
+                const { data: oldRental } = await supabase.from('rentals').select('status, pickup_confirmed').eq('id', id).single();
+                const wasConfirmed = oldRental?.pickup_confirmed ?? true;
                 if (oldRental && oldRental.status !== partialData.status) {
                     // Transição: De ativo para concluído ou cancelado -> devolve produtos ao stock
-                    if (oldRental.status === 'active' && (partialData.status === 'completed' || partialData.status === 'canceled')) {
+                    // (só se a retirada tinha sido confirmada, senão o stock nunca saiu)
+                    if (oldRental.status === 'active' && wasConfirmed && (partialData.status === 'completed' || partialData.status === 'canceled')) {
                         const { data: currentItems } = await supabase.from('rental_items').select('*').eq('rental_id', id);
                         if (currentItems) {
                             for (const item of currentItems) {
@@ -597,6 +633,39 @@ export function useGlobalRentals() {
         await updateRentalPartial(id, { payment_status: newStatus });
     };
 
+    // Confirma que o cliente veio buscar o material de uma reserva futura:
+    // só agora o stock é efetivamente descontado.
+    const confirmPickup = async (id: string) => {
+        try {
+            const { data: rentalRow, error: fetchErr } = await supabase
+                .from('rentals')
+                .select('pickup_confirmed, status')
+                .eq('id', id)
+                .single();
+            if (fetchErr) throw new Error(fetchErr.message);
+            if (!rentalRow || rentalRow.pickup_confirmed) return;
+
+            if (rentalRow.status === 'active') {
+                const { data: items } = await supabase.from('rental_items').select('product_id, quantity').eq('rental_id', id);
+                if (items) {
+                    for (const item of items) {
+                        const { data: p } = await supabase.from('products').select('available').eq('id', item.product_id).single();
+                        if (p) {
+                            await supabase.from('products').update({ available: p.available - item.quantity }).eq('id', item.product_id);
+                        }
+                    }
+                }
+            }
+
+            const { error } = await supabase.from('rentals').update({ pickup_confirmed: true }).eq('id', id);
+            if (error) throw new Error(error.message);
+            await fetchRentals();
+        } catch (e: any) {
+            console.error('Erro ao confirmar retirada:', e);
+            throw new Error(e.message);
+        }
+    };
+
     return {
         rentals,
         loading,
@@ -605,6 +674,7 @@ export function useGlobalRentals() {
         updateRentalPartial,
         deleteRental,
         updatePaymentStatus,
+        confirmPickup,
         refreshRentals: fetchRentals
     };
 }

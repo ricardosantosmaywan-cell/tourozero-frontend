@@ -84,10 +84,11 @@ body {
   margin-bottom: 20px;
 }
 .recibo-header h1 {
-  font-size: 28pt;
+  font-size: 18pt;
   margin: 0;
   font-weight: 900;
   letter-spacing: -1px;
+  white-space: nowrap;
 }
 .recibo-header .doc-type {
   font-size: 14pt;
