@@ -913,6 +913,8 @@ export default function Dashboard() {
             rented: activeRentals.reduce((acc, curr) => {
                 // Apenas conta alugueres ativos (concluídos/cancelados já devolveram ao stock)
                 if (curr.status !== 'active') return acc;
+                // Apenas conta como stock "alugado" se a retirada já foi confirmada (reserva ainda não confirmada continua no stock)
+                if (curr.pickup_confirmed === false) return acc;
                 // Apenas conta como stock "alugado" (fora do armazém) se a data de levantamento já chegou ou já passou
                 const pickupDate = new Date(curr.pickup_date);
                 pickupDate.setHours(0, 0, 0, 0);

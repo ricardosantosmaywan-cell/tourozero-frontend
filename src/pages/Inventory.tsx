@@ -122,6 +122,9 @@ export default function Inventory() {
                         ) : (
                             filteredProducts.map(product => {
                                 const rentedQuantity = activeRentals.reduce((total, rental) => {
+                                    // Apenas conta como "alugado" (fora do armazém) se a retirada já foi confirmada
+                                    if (rental.pickup_confirmed === false) return total;
+
                                     // Apenas conta como "alugado" (fora do armazém) se a data de levantamento já chegou
                                     const pickupDate = new Date(rental.pickup_date);
                                     pickupDate.setHours(0, 0, 0, 0);
