@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '../components/ui/Table';
-import { Euro, Users, Package, Clock, AlertCircle, Plus, CheckCircle2, Search, Edit2, Eye, AlertTriangle, FileText, Loader2, RotateCcw, Calendar, MoreHorizontal, ChevronDown, ChevronRight, CalendarPlus, Pencil, Trash2, Save, X, Printer } from 'lucide-react';
+import { Euro, Users, Package, Clock, AlertCircle, Plus, CheckCircle2, Search, Edit2, Eye, AlertTriangle, FileText, FileCheck2, Loader2, RotateCcw, Calendar, MoreHorizontal, ChevronDown, ChevronRight, CalendarPlus, Pencil, Trash2, Save, X, Printer } from 'lucide-react';
 import { BookingModal } from '../components/BookingModal';
 import { ViewRentalModal } from '../components/ViewRentalModal';
 import { ProlongModal } from '../components/ProlongModal';
@@ -1666,6 +1666,19 @@ export default function Dashboard() {
                                                                         <FileText className="w-3.5 h-3.5 text-slate-400" />
                                                                         Recibo + Contrato
                                                                     </button>
+                                                                    {rental.signature_url && (
+                                                                        <button
+                                                                            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-300 hover:text-slate-100 hover:bg-slate-800/80 rounded-lg text-left transition-colors cursor-pointer mb-1"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                setActiveDropdownId(null);
+                                                                                window.open(rental.signature_url as string, '_blank');
+                                                                            }}
+                                                                        >
+                                                                            <FileCheck2 className="w-3.5 h-3.5 text-emerald-500" />
+                                                                            Ver Contrato Assinado
+                                                                        </button>
+                                                                    )}
                                                                     <button
                                                                         className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-300 hover:text-slate-100 hover:bg-slate-800/80 rounded-lg text-left transition-colors cursor-pointer mb-1"
                                                                         onClick={(e) => {
@@ -2028,6 +2041,19 @@ export default function Dashboard() {
                                                             <FileText className="w-3.5 h-3.5 text-slate-400" />
                                                             Recibo + Contrato
                                                         </button>
+                                                        {rental.signature_url && (
+                                                            <button
+                                                                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-300 hover:text-slate-100 hover:bg-slate-800/80 rounded-lg text-left transition-colors cursor-pointer mb-1"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setActiveDropdownId(null);
+                                                                    window.open(rental.signature_url as string, '_blank');
+                                                                }}
+                                                            >
+                                                                <FileCheck2 className="w-3.5 h-3.5 text-emerald-500" />
+                                                                Ver Contrato Assinado
+                                                            </button>
+                                                        )}
                                                         <button
                                                             className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-300 hover:text-slate-100 hover:bg-slate-800/80 rounded-lg text-left transition-colors cursor-pointer mb-1"
                                                             onClick={(e) => {
