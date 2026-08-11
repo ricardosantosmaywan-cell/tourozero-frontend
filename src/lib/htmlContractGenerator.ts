@@ -1,8 +1,12 @@
 import type { Rental } from '../data/api';
 
-export function printRentalContractHTML(rental: Rental) {
-    if (!rental) return;
+interface ContractOptions {
+    signatureDataUrl?: string;
+    autoPrint?: boolean;
+}
 
+function buildContractDocument(rental: Rental, options: ContractOptions = {}): string {
+    const { signatureDataUrl, autoPrint = true } = options;
     const c = rental.customers;
     const customerName = c?.full_name || '________________________';
     const customerNif = c?.tax_id || '________________________';
@@ -117,11 +121,13 @@ body {
   margin: 15px 0;
 }
 .items-table th {
-  background: #222;
-  color: #fff;
+  background: #fff;
+  color: #000;
+  border-bottom: 2px solid #000;
   padding: 8px 10px;
   text-align: left;
   font-size: 10pt;
+  font-weight: bold;
 }
 .items-table th:last-child { text-align: center; }
 .totals-block {
@@ -249,7 +255,7 @@ body {
 
   <div style="display:flex;justify-content:space-between;margin-top:40px;">
     <div class="recibo-sig">Enredo Janota Unp Lda</div>
-    <div class="recibo-sig">O(A) Cliente: ${customerName}</div>
+    <div class="recibo-sig">${signatureDataUrl ? `<img src="${signatureDataUrl}" style="max-height:55px;display:block;margin:0 auto 4px;" />` : ''}O(A) Cliente: ${customerName}</div>
   </div>
 </div>
 
@@ -300,18 +306,26 @@ body {
 
   <div class="contrato-assinaturas">
     <div class="contrato-sig">A PRIMEIRA OUTORGANTE</div>
-    <div class="contrato-sig">A SEGUNDA OUTORGANTE</div>
+    <div class="contrato-sig">${signatureDataUrl ? `<img src="${signatureDataUrl}" style="max-height:55px;display:block;margin:0 auto 4px;" />` : ''}A SEGUNDA OUTORGANTE</div>
   </div>
 
 </div>
 
-<script>
+${autoPrint ? `<script>
 window.onload = function() {
   setTimeout(function() { window.print(); }, 600);
 };
-</script>
+</script>` : ''}
 </body>
 </html>`;
+
+    return doc;
+}
+
+export function printRentalContractHTML(rental: Rental) {
+    if (!rental) return;
+
+    const doc = buildContractDocument(rental, { autoPrint: true });
 
     const w = window.open('', '_blank');
     if (w) {
@@ -320,5 +334,53 @@ window.onload = function() {
         w.document.close();
     } else {
         alert('Pop-up bloqueado. Permita pop-ups para imprimir o contrato.');
+    }
+}
+
+export async function generateSignedContractPdf(rental: Rental, signatureDataUrl: string): Promise<Blob> {
+    const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+        import('html2canvas'),
+        import('jspdf'),
+    ]);
+
+    const html = buildContractDocument(rental, { signatureDataUrl, autoPrint: false });
+
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.left = '-10000px';
+    iframe.style.top = '0';
+    iframe.style.width = '210mm';
+    iframe.style.height = '297mm';
+    iframe.style.border = 'none';
+    document.body.appendChild(iframe);
+
+    try {
+        const doc = iframe.contentDocument;
+        if (!doc) throw new Error('Não foi possível preparar o contrato para gerar o PDF.');
+        doc.open();
+        doc.write(html);
+        doc.close();
+
+        await new Promise<void>((resolve) => {
+            if (doc.readyState === 'complete') resolve();
+            else iframe.onload = () => resolve();
+        });
+        await new Promise((resolve) => setTimeout(resolve, 150));
+
+        const pages = Array.from(doc.querySelectorAll<HTMLElement>('.page'));
+        const pdf = new jsPDF({ unit: 'mm', format: 'a4' });
+        const pdfWidth = 210;
+
+        for (let i = 0; i < pages.length; i++) {
+            const canvas = await html2canvas(pages[i], { scale: 2, backgroundColor: '#ffffff' });
+            const imgData = canvas.toDataURL('image/jpeg', 0.92);
+            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+            if (i > 0) pdf.addPage();
+            pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+        }
+
+        return pdf.output('blob');
+    } finally {
+        document.body.removeChild(iframe);
     }
 }

@@ -8,6 +8,7 @@ import { Euro, Users, Package, Clock, AlertCircle, Plus, CheckCircle2, Search, E
 import { BookingModal } from '../components/BookingModal';
 import { ViewRentalModal } from '../components/ViewRentalModal';
 import { ProlongModal } from '../components/ProlongModal';
+import { PickupSignatureModal } from '../components/PickupSignatureModal';
 import { useGlobalRentals, useGlobalProducts } from '../data/api';
 import { usePeriod } from '../contexts/PeriodContext';
 import { printRentalContractHTML } from '../lib/htmlContractGenerator';
@@ -826,20 +827,12 @@ export default function Dashboard() {
         }
     };
 
-    const handleConfirmPickup = async (rental: any) => {
-        const clientName = rental?.customers?.full_name || 'Cliente';
-        const itemsList = (rental?.items || []).map((it: any) => `  • ${it.quantity}x ${it.name}`).join('\n');
-        const confirmMsg = `Confirmar retirada do material por ${clientName}?\n\n` +
-            `Os seguintes itens serão descontados do stock:\n${itemsList || '  (sem itens)'}`;
-        if (!window.confirm(confirmMsg)) return;
+    const [signatureRental, setSignatureRental] = useState<any>(null);
+    const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
 
-        try {
-            await confirmPickup(rental.id);
-            await refreshProducts();
-            await refreshRentals();
-        } catch (err: any) {
-            alert("Erro ao confirmar retirada: " + err.message);
-        }
+    const handleConfirmPickup = (rental: any) => {
+        setSignatureRental(rental);
+        setIsSignatureModalOpen(true);
     };
 
     // Ação: Abrir modal de Sincronização de Stock
@@ -2313,6 +2306,19 @@ export default function Dashboard() {
                 rental={viewRental}
                 onEdit={handleEditRental}
                 onDelete={handleDeleteRental}
+            />
+
+            <PickupSignatureModal
+                isOpen={isSignatureModalOpen}
+                onClose={() => {
+                    setIsSignatureModalOpen(false);
+                    setSignatureRental(null);
+                }}
+                rental={signatureRental}
+                confirmPickup={confirmPickup}
+                updateRentalPartial={updateRentalPartial}
+                refreshProducts={refreshProducts}
+                onConfirmed={refreshRentals}
             />
 
             {/* Modal de Prolongamento de Aluguer */}

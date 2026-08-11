@@ -61,6 +61,8 @@ export interface Rental {
     iva_transport?: number;
     payment_status?: 'pending' | 'paid';
     pickup_confirmed?: boolean;
+    signature_url?: string | null;
+    signed_at?: string | null;
     received_by?: string;
     rental_duration_type?: 'dia' | 'semana';
     rental_duration_value?: number;
@@ -378,6 +380,8 @@ export function useGlobalRentals() {
                     materials_value: total - transport - deposit - ivaMats - ivaTransp, // Faturamento Líquido (Real)
                     payment_status: r.payment_status || 'pending',
                     pickup_confirmed: r.pickup_confirmed ?? true,
+                    signature_url: r.signature_url || null,
+                    signed_at: r.signed_at || null,
                     received_by: r.received_by || 'Não definido',
                     rental_duration_type: r.rental_duration_type || 'semana',
                     rental_duration_value: r.rental_duration_value || r.semanas || 1,
