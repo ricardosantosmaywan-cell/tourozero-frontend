@@ -83,44 +83,46 @@ export function PickupSignatureModal({ isOpen, onClose, rental, confirmPickup, u
     }
 
     return (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4">
-            <div className="w-full max-w-lg rounded-2xl bg-slate-900 border border-slate-800 p-6 shadow-2xl max-h-[92vh] overflow-y-auto">
-                <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-xl font-bold">Assinatura de Retirada</h2>
-                    <Button variant="ghost" size="icon" onClick={onClose} disabled={submitting}>
+        <div className="fixed inset-0 z-[70] flex flex-col bg-slate-900 sm:items-center sm:justify-center sm:bg-black/80 sm:p-4">
+            <div className="flex h-full w-full flex-col bg-slate-900 sm:h-auto sm:max-h-[92vh] sm:max-w-lg sm:rounded-2xl sm:border sm:border-slate-800 sm:shadow-2xl">
+                {/* Cabeçalho compacto */}
+                <div className="flex items-center justify-between px-4 pt-[max(env(safe-area-inset-top),1rem)] pb-2 sm:p-6 sm:pb-4">
+                    <div className="min-w-0">
+                        <h2 className="text-lg font-bold sm:text-xl">Assinatura de Retirada</h2>
+                        <p className="truncate text-xs text-slate-400 sm:text-sm">
+                            {clientName} · {itemsList || 'Sem itens'}
+                        </p>
+                    </div>
+                    <Button variant="ghost" size="icon" onClick={onClose} disabled={submitting} className="shrink-0">
                         <X className="h-4 w-4" />
                     </Button>
                 </div>
 
-                <div className="rounded-lg bg-slate-800/50 border border-slate-800 p-3 mb-4 text-sm">
-                    <p className="font-semibold text-slate-100">{clientName}</p>
-                    <p className="text-slate-400 mt-1">{itemsList || 'Sem itens'}</p>
-                </div>
+                {/* Área de assinatura: ocupa todo o espaço disponível do ecrã */}
+                <div className="relative mx-4 mb-3 flex-1 overflow-hidden rounded-xl border-2 border-dashed border-slate-700 sm:mx-6">
+                    <SignaturePad ref={padRef} />
 
-                <p className="text-sm text-slate-400 mb-3">
-                    Peça ao cliente para assinar abaixo com o dedo, confirmando a retirada do material e a aceitação do contrato de aluguer.
-                </p>
-
-                <SignaturePad ref={padRef} height={180} />
-
-                <div className="flex justify-end mt-2 mb-4">
                     <button
                         type="button"
-                        className="flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 transition-colors"
                         onClick={() => padRef.current?.clear()}
                         disabled={submitting}
+                        className="absolute right-3 top-3 flex items-center gap-1.5 rounded-full bg-slate-900/90 px-3 py-2 text-xs font-semibold text-slate-100 shadow-lg backdrop-blur border border-slate-700 active:scale-95 transition-transform"
                     >
-                        <Trash2 className="w-3.5 h-3.5" /> Limpar assinatura
+                        <Trash2 className="w-4 h-4" /> Corrigir assinatura
                     </button>
+
+                    <p className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 text-center text-xs text-slate-500 px-4">
+                        Assine com o dedo no espaço acima
+                    </p>
                 </div>
 
                 {error && (
-                    <div className="rounded-md bg-red-500/10 p-3 border border-red-500/20 text-sm text-red-500 mb-4">
+                    <div className="mx-4 mb-3 rounded-md bg-red-500/10 p-3 border border-red-500/20 text-sm text-red-500 sm:mx-6">
                         {error}
                     </div>
                 )}
 
-                <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
+                <div className="flex justify-end gap-3 border-t border-slate-800 px-4 py-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] sm:px-6 sm:py-4">
                     <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
                         Cancelar
                     </Button>

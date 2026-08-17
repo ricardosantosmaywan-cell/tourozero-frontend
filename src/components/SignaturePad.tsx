@@ -8,15 +8,17 @@ export interface SignaturePadHandle {
 
 interface SignaturePadProps {
     className?: string;
+    /** Altura fixa em px. Se omitida, o pad ocupa 100% da altura do contentor pai (modo "fill"). */
     height?: number;
 }
 
 export const SignaturePad = forwardRef<SignaturePadHandle, SignaturePadProps>(
-    ({ className, height = 200 }, ref) => {
+    ({ className, height }, ref) => {
         const canvasRef = useRef<HTMLCanvasElement>(null);
         const containerRef = useRef<HTMLDivElement>(null);
         const drawingRef = useRef(false);
         const [hasDrawn, setHasDrawn] = useState(false);
+        const fill = height === undefined;
 
         useEffect(() => {
             const canvas = canvasRef.current;
@@ -25,25 +27,43 @@ export const SignaturePad = forwardRef<SignaturePadHandle, SignaturePadProps>(
 
             const resize = () => {
                 const width = container.clientWidth;
+                const cssHeight = fill ? container.clientHeight : height!;
+                if (width === 0 || cssHeight === 0) return;
                 const dpr = window.devicePixelRatio || 1;
+
+                // Preserva o desenho existente ao redimensionar (ex: rotação do ecrã)
+                const prev = hasDrawn ? canvas.toDataURL('image/png') : null;
+
                 canvas.width = width * dpr;
-                canvas.height = height * dpr;
+                canvas.height = cssHeight * dpr;
                 canvas.style.width = `${width}px`;
-                canvas.style.height = `${height}px`;
+                canvas.style.height = `${cssHeight}px`;
                 const ctx = canvas.getContext('2d');
                 if (ctx) {
                     ctx.scale(dpr, dpr);
-                    ctx.lineWidth = 2.5;
+                    ctx.lineWidth = 3;
                     ctx.lineCap = 'round';
                     ctx.lineJoin = 'round';
                     ctx.strokeStyle = '#111111';
+                    if (prev) {
+                        const img = new Image();
+                        img.onload = () => ctx.drawImage(img, 0, 0, width, cssHeight);
+                        img.src = prev;
+                    }
                 }
             };
 
             resize();
-            window.addEventListener('resize', resize);
-            return () => window.removeEventListener('resize', resize);
-        }, [height]);
+
+            const observer = new ResizeObserver(resize);
+            observer.observe(container);
+            window.addEventListener('orientationchange', resize);
+            return () => {
+                observer.disconnect();
+                window.removeEventListener('orientationchange', resize);
+            };
+            // eslint-disable-next-line react-hooks/exhaustive-deps
+        }, [height, fill]);
 
         function getPos(e: React.PointerEvent<HTMLCanvasElement>) {
             const canvas = canvasRef.current!;
@@ -93,11 +113,11 @@ export const SignaturePad = forwardRef<SignaturePadHandle, SignaturePadProps>(
         }), [hasDrawn]);
 
         return (
-            <div ref={containerRef} className={className}>
+            <div ref={containerRef} className={className} style={fill ? { height: '100%' } : undefined}>
                 <canvas
                     ref={canvasRef}
-                    className="w-full rounded-lg bg-white touch-none"
-                    style={{ height }}
+                    className="w-full rounded-lg bg-white touch-none block"
+                    style={fill ? { height: '100%' } : { height }}
                     onPointerDown={handlePointerDown}
                     onPointerMove={handlePointerMove}
                     onPointerUp={handlePointerUp}
