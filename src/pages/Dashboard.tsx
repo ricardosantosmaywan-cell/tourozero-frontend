@@ -896,10 +896,16 @@ export default function Dashboard() {
     const currentMonthPrefix = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
     const monthlyRevenue = rentals.filter(r => r.pickup_date.startsWith(currentMonthPrefix) && r.payment_status === 'paid').reduce((acc, curr) => acc + (curr.materials_value || 0), 0);
     const pendingRevenue = rentals.filter(r => r.pickup_date.startsWith(currentMonthPrefix) && r.payment_status === 'pending').reduce((acc, curr) => acc + (curr.materials_value || 0), 0);
+    const monthlyTransportRevenue = rentals.filter(r => r.pickup_date.startsWith(currentMonthPrefix)).reduce((acc, curr) => {
+        const idaReceived = curr.transport_ida_paid ? Number(curr.transport_ida_value || 0) : 0;
+        const voltaReceived = curr.transport_volta_paid ? Number(curr.transport_volta_value || 0) : 0;
+        return acc + idaReceived + voltaReceived;
+    }, 0);
 
     const stats = {
         monthlyRevenue,
         pendingRevenue,
+        monthlyTransportRevenue,
         activeCustomers: displayRentals.length,
         stockStatus: {
             total: products.filter(p => p.name.toLowerCase().includes('andaime')).reduce((acc, p) => acc + p.stock_total, 0),
@@ -1204,8 +1210,22 @@ export default function Dashboard() {
                         ) : (
                             <>
                                 <div>
-                                    <div className="text-2xl font-extrabold text-emerald-400">{stats.monthlyRevenue.toFixed(2)} €</div>
+                                    <div className="text-2xl font-extrabold text-emerald-400">{(stats.monthlyRevenue + stats.monthlyTransportRevenue).toFixed(2)} €</div>
                                     <p className="text-[10px] text-slate-500 mt-0.5">Dinheiro em caixa (Pago)</p>
+                                </div>
+                                <div className="mt-2 pt-1.5 border-t border-slate-800/60 space-y-0.5">
+                                    <div className="flex items-center justify-between text-[10px]">
+                                        <span className="text-slate-500">Andaimes:</span>
+                                        <span className="font-semibold text-slate-300">{stats.monthlyRevenue.toFixed(2)} €</span>
+                                    </div>
+                                    <div className="flex items-center justify-between text-[10px]">
+                                        <span className="text-slate-500">Transporte:</span>
+                                        <span className="font-semibold text-slate-300">{stats.monthlyTransportRevenue.toFixed(2)} €</span>
+                                    </div>
+                                    <div className="flex items-center justify-between text-[10px] pt-0.5 border-t border-slate-800/60">
+                                        <span className="text-slate-400 font-medium">Total:</span>
+                                        <span className="font-bold text-emerald-400">{(stats.monthlyRevenue + stats.monthlyTransportRevenue).toFixed(2)} €</span>
+                                    </div>
                                 </div>
                                 {stats.pendingRevenue > 0 && (
                                     <div className="mt-2 pt-1.5 border-t border-slate-800/60">
