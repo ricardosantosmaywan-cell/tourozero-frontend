@@ -30,7 +30,8 @@ describe('htmlContractGenerator', () => {
             total_amount: 150.00,
             payment_status: 'paid',
             items: [
-                { name: 'Andaime XPTO', quantity: 2 }
+                { name: 'Andaime XPTO', quantity: 2, price_unit: 45.25 },
+                { name: 'Prancha Antiga', quantity: 3 }
             ]
         };
 
@@ -48,6 +49,8 @@ describe('htmlContractGenerator', () => {
         expect(htmlWritten).toContain('Cliente Teste');
         expect(htmlWritten).toContain('999999999');
         expect(htmlWritten).toContain('Andaime XPTO');
+        expect(htmlWritten).toContain('90.50 €'); // valor da linha: 2 × 45.25
+        expect(htmlWritten).toContain('>—</td>'); // item antigo sem valor
         expect(htmlWritten).toContain('150.00 €'); // Verifica formatação do total
 
         // Clean up

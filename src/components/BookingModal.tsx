@@ -25,7 +25,7 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
     const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
     const [pickupDate, setPickupDate] = useState('');
     const [returnDate, setReturnDate] = useState('');
-    const [selectedProducts, setSelectedProducts] = useState<{ product: any, quantity: number }[]>([]);
+    const [selectedProducts, setSelectedProducts] = useState<{ product: any, quantity: number, value: number }[]>([]);
     const [selectedProductId, setSelectedProductId] = useState<string>('');
     const [manualTotal, setManualTotal] = useState<number>(0);
     const [transportIdaValue, setTransportIdaValue] = useState<number>(0);
@@ -53,6 +53,11 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
     const searchRef = useRef<HTMLDivElement>(null);
 
     const transportFee = (transportIdaValue || 0) + (transportVoltaValue || 0);
+
+    // Subtotal = soma dos valores de cada item. `manualTotal` só serve de fallback para
+    // agendamentos antigos, cujos itens foram gravados sem valor.
+    const itemsSubtotal = Math.round(selectedProducts.reduce((sum, sp) => sum + (sp.value || 0), 0) * 100) / 100;
+    const subtotal = itemsSubtotal > 0 ? itemsSubtotal : manualTotal;
 
     const filteredCustomerSuggestions = nifSearch.trim().length >= 1
         ? customers.filter(c =>
@@ -140,7 +145,8 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
                 if (rentalToEdit.items && rentalToEdit.items.length > 0) {
                     setSelectedProducts(rentalToEdit.items.map((it: any) => ({
                         product: { id: it.product_id, name: it.name },
-                        quantity: Number(it.quantity || 0)
+                        quantity: Number(it.quantity || 0),
+                        value: Math.round(Number(it.price_unit || 0) * Number(it.quantity || 0) * 100) / 100
                     })));
                 }
 
@@ -180,6 +186,7 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
                         .from('rental_items')
                         .select(`
                             quantity,
+                            price_unit,
                             product_id,
                             products:product_id ( id, name )
                         `)
@@ -190,7 +197,8 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
                             const prodData = Array.isArray(it.products) ? it.products[0] : it.products;
                             return {
                                 product: { id: it.product_id || it.id, name: prodData?.name || it.name || 'Produto' },
-                                quantity: Number(it.quantity || 0)
+                                quantity: Number(it.quantity || 0),
+                                value: Math.round(Number(it.price_unit || 0) * Number(it.quantity || 0) * 100) / 100
                             };
                         });
                         setSelectedProducts(mappedProducts);
@@ -238,7 +246,7 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
         if (sel && sel.value) {
             const implicitProd = products.find(p => p.id === sel.value);
             if (implicitProd && !finalProducts.find(sp => sp.product.id === implicitProd.id)) {
-                finalProducts.push({ product: implicitProd, quantity: parseInt(qty.value) || 1 });
+                finalProducts.push({ product: implicitProd, quantity: parseInt(qty.value) || 1, value: 0 });
             }
         }
 
@@ -295,10 +303,10 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
         }
 
         
-        const calcIvaMats = (manualTotal * (ivaMaterials / 100));
+        const calcIvaMats = (subtotal * (ivaMaterials / 100));
         const calcIvaTransp = (transportFee * (ivaTransport / 100));
         
-        const totalPayload = (manualTotal || 0) + 
+        const totalPayload = (subtotal || 0) + 
                              (transportFee || 0) + 
                              (depositFee || 0) + 
                              calcIvaMats + 
@@ -328,7 +336,7 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
             items: finalProducts.map(sp => ({
                 product_id: sp.product.id,
                 name: sp.product.name,
-                price_unit: 0,
+                price_unit: sp.quantity > 0 ? (sp.value || 0) / sp.quantity : 0,
                 quantity: sp.quantity
             })),
             extensions_history: rentalToEdit ? extensionsHistory : []
@@ -604,17 +612,33 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
                                     if (exists) {
                                         setSelectedProducts(selectedProducts.map(sp => sp.product.id === prod.id ? { ...sp, quantity: sp.quantity + qtyValue } : sp));
                                     } else {
-                                        setSelectedProducts([...selectedProducts, { product: prod, quantity: qtyValue }]);
+                                        setSelectedProducts([...selectedProducts, { product: prod, quantity: qtyValue, value: 0 }]);
                                     }
                                 }
                             }}>
                                 <PlusCircle className="h-4 w-4" />
                             </Button>
                         </div>
-                        <div className="space-y-1 max-h-[80px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-800">
+                        <div className="space-y-1 max-h-[180px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-800">
                             {selectedProducts.length > 0 ? selectedProducts.map((sp, idx) => (
-                                <div key={idx} className="flex items-center justify-between p-1.5 bg-slate-900/60 rounded border border-slate-800/40 group">
-                                    <span className="text-[10px] font-medium text-slate-300"><span className="text-amber-500 font-bold">{sp.quantity}x</span> {sp.product.name}</span>
+                                <div key={idx} className="flex items-center justify-between gap-2 p-1.5 bg-slate-900/60 rounded border border-slate-800/40 group">
+                                    <span className="text-[10px] font-medium text-slate-300 flex-1 min-w-0 truncate"><span className="text-amber-500 font-bold">{sp.quantity}x</span> {sp.product.name}</span>
+                                    <div className="relative w-24 shrink-0">
+                                        <Input
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            placeholder="0.00"
+                                            aria-label={`Valor de ${sp.product.name}`}
+                                            value={sp.value === 0 ? '' : sp.value}
+                                            onChange={(e) => {
+                                                const value = parseFloat(e.target.value) || 0;
+                                                setSelectedProducts(selectedProducts.map((item, i) => i === idx ? { ...item, value } : item));
+                                            }}
+                                            className="h-7 text-xs pl-1 pr-5 border-slate-700 bg-slate-900 focus:ring-amber-500"
+                                        />
+                                        <span className="absolute right-2 top-1.5 text-[10px] text-slate-500 font-bold">€</span>
+                                    </div>
                                     <Button type="button" variant="ghost" size="icon" className="h-5 w-5 opacity-50 group-hover:opacity-100 transition-opacity" onClick={() => setSelectedProducts(selectedProducts.filter((_, i) => i !== idx))}>
                                         <Trash className="h-3 w-3 text-red-500" />
                                     </Button>
@@ -633,15 +657,16 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
                         
                         <div className="grid grid-cols-3 gap-2">
                             <div>
-                                <label className="block text-[9px] font-bold text-slate-500 uppercase mb-0.5">Subtotal €</label>
+                                <label className="block text-[9px] font-bold text-slate-500 uppercase mb-0.5">Subtotal € <span className="normal-case font-normal text-slate-600">(soma dos itens)</span></label>
                                 <Input
                                     type="number"
                                     min="0"
                                     step="0.01"
-                                    value={manualTotal === 0 && !rentalToEdit ? '' : manualTotal}
+                                    placeholder="0.00"
+                                    value={subtotal === 0 ? '' : subtotal}
                                     onChange={(e) => setManualTotal(parseFloat(e.target.value) || 0)}
-                                    className="h-8 text-xs px-1 border-slate-700 bg-slate-900 focus:ring-amber-500"
-                                    required
+                                    readOnly={itemsSubtotal > 0 || !rentalToEdit}
+                                    className="h-8 text-xs px-1 border-slate-700 bg-slate-900 focus:ring-amber-500 read-only:bg-slate-900/40 read-only:text-slate-300 read-only:font-bold read-only:cursor-default"
                                 />
                             </div>
                             <div>
@@ -733,7 +758,7 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
                                     />
                                     <span className="absolute right-2 top-1.5 text-[10px] text-slate-500 font-bold">%</span>
                                 </div>
-                                <p className="text-[8px] text-slate-600 mt-0.5">= {(manualTotal * (ivaMaterials / 100)).toFixed(2)}€</p>
+                                <p className="text-[8px] text-slate-600 mt-0.5">= {(subtotal * (ivaMaterials / 100)).toFixed(2)}€</p>
                             </div>
                             <div>
                                 <label className="block text-[9px] font-bold text-slate-500 uppercase mb-0.5">IVA Transporte (%)</label>
@@ -779,7 +804,7 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
                             </div>
                             <div className="flex flex-col items-end">
                                 {(() => {
-                                    const totalAluguel = manualTotal + transportFee + depositFee + (manualTotal * (ivaMaterials / 100)) + (transportFee * (ivaTransport / 100));
+                                    const totalAluguel = subtotal + transportFee + depositFee + (subtotal * (ivaMaterials / 100)) + (transportFee * (ivaTransport / 100));
                                     const saldoAPagar = totalAluguel - (reservationValue || 0);
                                     return (
                                         <>
@@ -827,7 +852,7 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
 
                     <div className="flex justify-end gap-2 pt-1">
                         <Button type="button" variant="outline" className="h-8 px-3 text-[10px]" onClick={() => { resetState(); onClose(); }}>Cancelar</Button>
-                        <Button type="submit" className="h-8 px-5 font-bold text-[11px] bg-amber-500 hover:bg-amber-600 text-slate-900" disabled={manualTotal <= 0}>
+                        <Button type="submit" className="h-8 px-5 font-bold text-[11px] bg-amber-500 hover:bg-amber-600 text-slate-900" disabled={subtotal <= 0}>
                             {showCustomerForm && !selectedCustomer ? 'Criar Cliente e Agendar' : rentalToEdit ? 'Salvar Alterações' : 'Confirmar Agendamento'}
                         </Button>
                     </div>

@@ -43,9 +43,13 @@ function buildContractDocument(rental: Rental, options: ContractOptions = {}): s
     }
 
     // Gerar linhas de itens para a tabela do recibo
-    const itemsRows = (rental.items || []).map((item: any) =>
-        `<tr><td style="padding:6px 10px;border-bottom:1px solid #ddd;">${item.name}</td><td style="padding:6px 10px;border-bottom:1px solid #ddd;text-align:center;">${item.quantity}</td></tr>`
-    ).join('');
+    // O valor de cada linha é price_unit × quantidade; itens antigos sem valor mostram "—".
+    const itemsRows = (rental.items || []).map((item: any) => {
+        const itemName = item.name || (Array.isArray(item.products) ? item.products[0]?.name : item.products?.name) || 'Item';
+        const lineValue = Math.round(Number(item.price_unit || 0) * Number(item.quantity || 0) * 100) / 100;
+        const lineValueText = lineValue > 0 ? `${lineValue.toFixed(2)} €` : '—';
+        return `<tr><td style="padding:6px 10px;border-bottom:1px solid #ddd;">${itemName}</td><td style="padding:6px 10px;border-bottom:1px solid #ddd;text-align:center;">${item.quantity}</td><td style="padding:6px 10px;border-bottom:1px solid #ddd;text-align:right;white-space:nowrap;">${lineValueText}</td></tr>`;
+    }).join('');
 
     const now = new Date().toLocaleString('pt-PT');
 
@@ -129,7 +133,8 @@ body {
   font-size: 10pt;
   font-weight: bold;
 }
-.items-table th:last-child { text-align: center; }
+.items-table th:nth-child(2) { text-align: center; }
+.items-table th:last-child { text-align: right; }
 .totals-block {
   margin-top: 20px;
   text-align: right;
@@ -232,8 +237,8 @@ body {
   </div>
 
   <table class="items-table">
-    <thead><tr><th>Material</th><th>Qtd</th></tr></thead>
-    <tbody>${itemsRows || '<tr><td colspan="2" style="padding:8px;text-align:center;color:#999;">Sem itens</td></tr>'}</tbody>
+    <thead><tr><th>Material</th><th>Qtd</th><th>Valor</th></tr></thead>
+    <tbody>${itemsRows || '<tr><td colspan="3" style="padding:8px;text-align:center;color:#999;">Sem itens</td></tr>'}</tbody>
   </table>
 
   <div class="totals-block">
