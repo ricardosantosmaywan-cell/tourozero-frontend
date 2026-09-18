@@ -4,12 +4,13 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
 import { Search, Plus, Edit2, Trash2, X, Eye, User, History, Euro, Clock, CheckCircle2, ExternalLink, RotateCw } from 'lucide-react';
-import { useGlobalCustomers } from '../data/api';
+import { useGlobalCustomers, useGlobalRentals } from '../data/api';
 import type { Customer } from '../data/api';
 import { ClientModal } from '../components/ClientModal';
 
 export default function Customers() {
     const { customers, deleteCustomer } = useGlobalCustomers();
+    const { rentals } = useGlobalRentals();
     const [searchTerm, setSearchTerm] = useState('');
     const [filterDate, setFilterDate] = useState('');
 
@@ -24,20 +25,30 @@ export default function Customers() {
     const [rotationFront, setRotationFront] = useState<number>(0);
     const [rotationBack, setRotationBack] = useState<number>(0);
 
-    // Mock History State (Global for simulation)
-    const [mockRentalsDataset] = useState([
-        { id: '101', customer_id: '1', pickup_date: '2025-08-10', return_date: '2025-09-10', total_amount: 120.00, status: 'completed' },
-        { id: '102', customer_id: '1', pickup_date: '2025-11-05', return_date: '2025-11-20', total_amount: 60.00, status: 'completed' },
-        { id: '103', customer_id: '1', pickup_date: '2026-02-10', return_date: '2026-03-10', total_amount: 240.00, status: 'active' },
-        { id: '104', customer_id: '2', pickup_date: '2026-01-15', return_date: '2026-01-20', total_amount: 80.00, status: 'completed' },
-        { id: '105', customer_id: '3', pickup_date: '2025-12-01', return_date: '2026-01-01', total_amount: 300.00, status: 'completed' },
-        { id: '106', customer_id: '3', pickup_date: '2026-02-15', return_date: '2026-02-28', total_amount: 150.00, status: 'active' },
-    ]);
-
-    // Relacional filter for History
+    // Histórico real do cliente: alugueres do banco, do mais recente para o mais antigo
     const getCustomerRentals = (customerId: string) => {
-        return mockRentalsDataset.filter(r => r.customer_id === customerId);
+        return rentals
+            .filter(r => r.customer_id === customerId)
+            .sort((a, b) => b.pickup_date.localeCompare(a.pickup_date));
     };
+
+    // Valor faturado ao cliente: total do aluguer sem a caução (garantia restituível)
+    const getBilledValue = (r: { total_amount: number; deposit_value?: number }) =>
+        Math.max(0, Number(r.total_amount || 0) - Number(r.deposit_value || 0));
+
+    // Data de retorno efetiva: a do último prolongamento, se existir
+    const getReturnDate = (r: { return_date: string; extensions_history?: any[] }) => {
+        const exts = Array.isArray(r.extensions_history) ? r.extensions_history : [];
+        return exts.length > 0 && exts[exts.length - 1].new_return_date ? exts[exts.length - 1].new_return_date : r.return_date;
+    };
+
+    // LTV: tudo o que o cliente já gastou (cancelados não contam), separado em pago e pendente
+    const customerLtv = useMemo(() => {
+        const list = selectedProfile ? rentals.filter(r => r.customer_id === selectedProfile.id && r.status !== 'canceled') : [];
+        const total = list.reduce((acc, r) => acc + getBilledValue(r), 0);
+        const paid = list.filter(r => r.payment_status === 'paid').reduce((acc, r) => acc + getBilledValue(r), 0);
+        return { total, paid, pending: total - paid, count: list.length };
+    }, [rentals, selectedProfile]);
 
     const filteredCustomers = useMemo(() => {
         return customers.filter(c => {
@@ -336,11 +347,16 @@ export default function Customers() {
                                     <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6 flex items-center justify-between">
                                         <div>
                                             <h3 className="text-sm font-medium text-slate-400 uppercase tracking-wider">Lifetime Value (LTV)</h3>
-                                            <p className="text-xs text-slate-500 mt-1">Soma total de todos os contratos em área de consulta.</p>
+                                            <p className="text-xs text-slate-500 mt-1">Soma de todos os alugueres ({customerLtv.count}), sem caução e sem cancelados.</p>
+                                            <p className="text-xs mt-1">
+                                                <span className="text-emerald-400">Pago: {customerLtv.paid.toFixed(2)} €</span>
+                                                <span className="text-slate-600"> · </span>
+                                                <span className={customerLtv.pending > 0 ? 'text-amber-400' : 'text-slate-500'}>Pendente: {customerLtv.pending.toFixed(2)} €</span>
+                                            </p>
                                         </div>
                                         <div className="text-3xl font-bold text-emerald-400 flex items-center gap-2">
                                             <Euro className="w-6 h-6 text-emerald-500/50" />
-                                            {getCustomerRentals(selectedProfile.id).reduce((acc, r) => acc + r.total_amount, 0).toFixed(2)}
+                                            {customerLtv.total.toFixed(2)}
                                         </div>
                                     </div>
 
@@ -355,15 +371,29 @@ export default function Customers() {
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
+                                                {getCustomerRentals(selectedProfile.id).length === 0 && (
+                                                    <TableRow className="hover:bg-transparent">
+                                                        <TableCell colSpan={4} className="py-6 text-center text-slate-500">Nenhum aluguer registado para este cliente.</TableCell>
+                                                    </TableRow>
+                                                )}
                                                 {getCustomerRentals(selectedProfile.id).map(rental => (
                                                     <TableRow key={rental.id} className="hover:bg-slate-800/30 transition-colors opacity-90">
                                                         <TableCell className="py-3">{new Date(rental.pickup_date).toLocaleDateString()}</TableCell>
-                                                        <TableCell className="py-3">{new Date(rental.return_date).toLocaleDateString()}</TableCell>
-                                                        <TableCell className="py-3 font-medium text-slate-300">{rental.total_amount.toFixed(2)} €</TableCell>
+                                                        <TableCell className="py-3">{new Date(getReturnDate(rental)).toLocaleDateString()}</TableCell>
+                                                        <TableCell className="py-3 font-medium text-slate-300">
+                                                            <span className={rental.status === 'canceled' ? 'line-through text-slate-500' : ''}>{getBilledValue(rental).toFixed(2)} €</span>
+                                                            {rental.status !== 'canceled' && rental.payment_status === 'pending' && (
+                                                                <span className="ml-2 text-[10px] font-semibold text-amber-400">pendente</span>
+                                                            )}
+                                                        </TableCell>
                                                         <TableCell className="py-3 text-right">
                                                             {rental.status === 'active' ? (
                                                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                                                                     <Clock className="w-3 h-3" /> Em Curso
+                                                                </span>
+                                                            ) : rental.status === 'canceled' ? (
+                                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-red-500/10 text-red-400 border border-red-500/20">
+                                                                    <X className="w-3 h-3" /> Cancelado
                                                                 </span>
                                                             ) : (
                                                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-slate-500/10 text-slate-400 border border-slate-500/20">
