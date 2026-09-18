@@ -23,6 +23,9 @@ export function PickupSignatureModal({ isOpen, onClose, rental, confirmPickup, u
 
     if (!isOpen || !rental) return null;
 
+    // Só as reservas com retirada pendente confirmam a retirada ao assinar;
+    // nos restantes o contrato é apenas assinado e guardado.
+    const isPickupConfirmation = rental.pickup_confirmed === false;
     const clientName = rental.customers?.full_name || 'Cliente';
     const itemsList = (rental.items || []).map(it => `${it.quantity}x ${it.name}`).join(', ');
 
@@ -48,9 +51,9 @@ export function PickupSignatureModal({ isOpen, onClose, rental, confirmPickup, u
             const { data: publicUrlData } = supabase.storage.from('documents').getPublicUrl(fileName);
             const signedUrl = publicUrlData.publicUrl;
 
-            await confirmPickup(rental.id);
+            if (isPickupConfirmation) await confirmPickup(rental.id);
             await updateRentalPartial(rental.id, { signature_url: signedUrl, signed_at: new Date().toISOString() });
-            await refreshProducts();
+            if (isPickupConfirmation) await refreshProducts();
 
             const fileTitle = `Contrato_${clientName.replace(/\s+/g, '_')}.pdf`;
             const pdfFile = new File([pdfBlob], fileTitle, { type: 'application/pdf' });
@@ -76,7 +79,7 @@ export function PickupSignatureModal({ isOpen, onClose, rental, confirmPickup, u
             onConfirmed?.();
             onClose();
         } catch (err: any) {
-            setError(err.message || 'Erro ao confirmar a retirada com assinatura.');
+            setError(err.message || 'Erro ao guardar a assinatura do contrato.');
         } finally {
             setSubmitting(false);
         }
@@ -88,7 +91,7 @@ export function PickupSignatureModal({ isOpen, onClose, rental, confirmPickup, u
                 {/* Cabeçalho compacto */}
                 <div className="flex items-center justify-between px-4 pt-[max(env(safe-area-inset-top),1rem)] pb-2 sm:p-6 sm:pb-4">
                     <div className="min-w-0">
-                        <h2 className="text-lg font-bold sm:text-xl">Assinatura de Retirada</h2>
+                        <h2 className="text-lg font-bold sm:text-xl">{isPickupConfirmation ? 'Assinatura de Retirada' : 'Assinatura do Contrato'}</h2>
                         <p className="truncate text-xs text-slate-400 sm:text-sm">
                             {clientName} · {itemsList || 'Sem itens'}
                         </p>

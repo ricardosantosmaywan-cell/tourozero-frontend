@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '../components/ui/Table';
-import { Euro, Users, Package, Clock, AlertCircle, Plus, CheckCircle2, Search, Edit2, Eye, AlertTriangle, FileText, FileCheck2, Loader2, RotateCcw, Calendar, MoreHorizontal, ChevronDown, ChevronRight, CalendarPlus, Pencil, Trash2, Save, X, Printer } from 'lucide-react';
+import { Euro, Users, Package, Clock, AlertCircle, Plus, CheckCircle2, Search, Edit2, Eye, AlertTriangle, FileText, FileCheck2, PenLine, Receipt, Loader2, RotateCcw, Calendar, MoreHorizontal, ChevronDown, ChevronRight, CalendarPlus, Pencil, Trash2, Save, X, Printer } from 'lucide-react';
 import { BookingModal } from '../components/BookingModal';
 import { ViewRentalModal } from '../components/ViewRentalModal';
 import { ProlongModal } from '../components/ProlongModal';
@@ -12,6 +12,7 @@ import { PickupSignatureModal } from '../components/PickupSignatureModal';
 import { useGlobalRentals, useGlobalProducts } from '../data/api';
 import { usePeriod } from '../contexts/PeriodContext';
 import { printRentalContractHTML } from '../lib/htmlContractGenerator';
+import { printRentalReceiptHTML } from '../lib/htmlReceiptGenerator';
 import { supabase } from '../lib/supabase';
 
 export default function Dashboard() {
@@ -31,7 +32,7 @@ export default function Dashboard() {
 
     // Tabela State
     const [searchTerm, setSearchTerm] = useState('');
-    const [filterStatus, setFilterStatus] = useState<'all' | 'ontime' | 'late' | 'ricardo' | 'gabriel'>('all');
+    const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'completed' | 'ontime' | 'late' | 'ricardo' | 'gabriel'>('all');
     
     // Filtros de Histórico
     const [historyStartDate, setHistoryStartDate] = useState('');
@@ -554,6 +555,9 @@ export default function Dashboard() {
             // Se houver filtro de data, o filtro de status (Em Dia / Atrasados) é ignorado,
             // mas mantemos filtros de pessoa (ricardo/gabriel)
             let matchStatus = true;
+            // Ativos / Concluídos valem também com filtro de datas (só o Em Dia / Atrasados é ignorado)
+            if (filterStatus === 'active') matchStatus = r.status === 'active';
+            if (filterStatus === 'completed') matchStatus = r.status === 'completed';
             if (!hasDateFilter) {
                 if (filterStatus === 'ontime') matchStatus = !late;
                 if (filterStatus === 'late') matchStatus = late;
@@ -820,7 +824,13 @@ export default function Dashboard() {
             await refreshProducts();
             await refreshRentals();
 
-            alert(`✅ Aluguer de ${clientName} finalizado!\nProdutos devolvidos ao stock com sucesso.`);
+            // 5. Recibo: só é emitido quando o pagamento está confirmado
+            if (rental && rental.payment_status === 'paid') {
+                alert(`✅ Aluguer de ${clientName} finalizado!\nProdutos devolvidos ao stock com sucesso.\n\nVai abrir o recibo para imprimir ou guardar em PDF.`);
+                printRentalReceiptHTML({ ...rental, status: 'completed' });
+            } else {
+                alert(`✅ Aluguer de ${clientName} finalizado!\nProdutos devolvidos ao stock com sucesso.\n\nℹ️ O recibo não foi gerado porque o pagamento ainda está pendente. Depois de confirmar o pagamento, use "Recibo de Pagamento" no menu de ações.`);
+            }
 
         } catch (err: any) {
             alert("Erro ao finalizar aluguer: " + err.message);
@@ -894,9 +904,31 @@ export default function Dashboard() {
     };
     // Estatísticas Dinâmicas para os Cards
     const currentMonthPrefix = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
-    const monthlyRevenue = rentals.filter(r => r.pickup_date.startsWith(currentMonthPrefix) && r.payment_status === 'paid').reduce((acc, curr) => acc + (curr.materials_value || 0), 0);
-    const pendingRevenue = rentals.filter(r => r.pickup_date.startsWith(currentMonthPrefix) && r.payment_status === 'pending').reduce((acc, curr) => acc + (curr.materials_value || 0), 0);
-    const monthlyTransportRevenue = rentals.filter(r => r.pickup_date.startsWith(currentMonthPrefix)).reduce((acc, curr) => {
+    const monthRentals = rentals.filter(r => r.pickup_date.startsWith(currentMonthPrefix));
+    let monthlyRevenue = 0;
+    let pendingRevenue = 0;
+    monthRentals.forEach(r => {
+        // Cada prolongamento tem seu próprio payment_status, independente do aluguer base
+        const exts = getExtensions(r).filter((e: any) => e.type === 'prolongamento');
+        const extSum = exts.reduce((s: number, e: any) => s + getExtValue(e), 0);
+        const baseValue = Math.max(0, (r.materials_value || 0) - extSum);
+
+        if (r.payment_status === 'paid') {
+            monthlyRevenue += baseValue;
+        } else {
+            pendingRevenue += baseValue;
+        }
+
+        exts.forEach((ext: any) => {
+            const extVal = getExtValue(ext);
+            if (ext.payment_status === 'pending') {
+                pendingRevenue += extVal;
+            } else {
+                monthlyRevenue += extVal;
+            }
+        });
+    });
+    const monthlyTransportRevenue = monthRentals.reduce((acc, curr) => {
         const idaReceived = curr.transport_ida_paid ? Number(curr.transport_ida_value || 0) : 0;
         const voltaReceived = curr.transport_volta_paid ? Number(curr.transport_volta_value || 0) : 0;
         return acc + idaReceived + voltaReceived;
@@ -1407,6 +1439,18 @@ export default function Dashboard() {
                                     Todos
                                 </button>
                                 <button
+                                    onClick={() => setFilterStatus('active')}
+                                    className={`shrink-0 px-3 py-1.5 text-xs font-medium rounded-sm transition-colors ${filterStatus === 'active' ? 'bg-amber-500 text-slate-900' : 'text-slate-400 hover:text-slate-200'}`}
+                                >
+                                    Ativos
+                                </button>
+                                <button
+                                    onClick={() => setFilterStatus('completed')}
+                                    className={`shrink-0 px-3 py-1.5 text-xs font-medium rounded-sm transition-colors ${filterStatus === 'completed' ? 'bg-amber-500 text-slate-900' : 'text-slate-400 hover:text-slate-200'}`}
+                                >
+                                    Concluídos
+                                </button>
+                                <button
                                     onClick={() => setFilterStatus('ontime')}
                                     className={`shrink-0 px-3 py-1.5 text-xs font-medium rounded-sm transition-colors ${filterStatus === 'ontime' ? 'bg-amber-500 text-slate-900' : 'text-slate-400 hover:text-slate-200'}`}
                                 >
@@ -1686,6 +1730,32 @@ export default function Dashboard() {
                                                                         <FileText className="w-3.5 h-3.5 text-slate-400" />
                                                                         Recibo + Contrato
                                                                     </button>
+                                                                    {rental.status === 'completed' && rental.payment_status === 'paid' && (
+                                                                        <button
+                                                                            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-300 hover:text-slate-100 hover:bg-slate-800/80 rounded-lg text-left transition-colors cursor-pointer mb-1"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                setActiveDropdownId(null);
+                                                                                printRentalReceiptHTML(rental);
+                                                                            }}
+                                                                        >
+                                                                            <Receipt className="w-3.5 h-3.5 text-emerald-500" />
+                                                                            Recibo de Pagamento
+                                                                        </button>
+                                                                    )}
+                                                                    {!rental.signature_url && !(rental.status === 'active' && rental.pickup_confirmed === false) && (
+                                                                        <button
+                                                                            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-300 hover:text-slate-100 hover:bg-slate-800/80 rounded-lg text-left transition-colors cursor-pointer mb-1"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                setActiveDropdownId(null);
+                                                                                handleConfirmPickup(rental);
+                                                                            }}
+                                                                        >
+                                                                            <PenLine className="w-3.5 h-3.5 text-blue-400" />
+                                                                            Assinar Contrato
+                                                                        </button>
+                                                                    )}
                                                                     {rental.signature_url && (
                                                                         <button
                                                                             className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-300 hover:text-slate-100 hover:bg-slate-800/80 rounded-lg text-left transition-colors cursor-pointer mb-1"
@@ -2061,6 +2131,32 @@ export default function Dashboard() {
                                                             <FileText className="w-3.5 h-3.5 text-slate-400" />
                                                             Recibo + Contrato
                                                         </button>
+                                                        {rental.status === 'completed' && rental.payment_status === 'paid' && (
+                                                            <button
+                                                                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-300 hover:text-slate-100 hover:bg-slate-800/80 rounded-lg text-left transition-colors cursor-pointer mb-1"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setActiveDropdownId(null);
+                                                                    printRentalReceiptHTML(rental);
+                                                                }}
+                                                            >
+                                                                <Receipt className="w-3.5 h-3.5 text-emerald-500" />
+                                                                Recibo de Pagamento
+                                                            </button>
+                                                        )}
+                                                        {!rental.signature_url && !(rental.status === 'active' && rental.pickup_confirmed === false) && (
+                                                            <button
+                                                                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-300 hover:text-slate-100 hover:bg-slate-800/80 rounded-lg text-left transition-colors cursor-pointer mb-1"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setActiveDropdownId(null);
+                                                                    handleConfirmPickup(rental);
+                                                                }}
+                                                            >
+                                                                <PenLine className="w-3.5 h-3.5 text-blue-400" />
+                                                                Assinar Contrato
+                                                            </button>
+                                                        )}
                                                         {rental.signature_url && (
                                                             <button
                                                                 className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-300 hover:text-slate-100 hover:bg-slate-800/80 rounded-lg text-left transition-colors cursor-pointer mb-1"
