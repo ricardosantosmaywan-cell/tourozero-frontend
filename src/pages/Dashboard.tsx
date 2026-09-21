@@ -1490,9 +1490,10 @@ export default function Dashboard() {
                         <Table>
                             <TableHeader>
                                 <TableRow className="bg-slate-950 border-slate-800 print:border-black print:bg-white hover:bg-transparent">
-                                    <TableHead className="w-[30%] min-w-[200px] print:text-black">Cliente</TableHead>
+                                    <TableHead className="w-[26%] min-w-[200px] print:text-black">Cliente</TableHead>
                                     <TableHead className="w-[13%] min-w-[120px] print:text-black">Prazo</TableHead>
                                     <TableHead className="w-[13%] min-w-[130px] print:text-black">Status</TableHead>
+                                    <TableHead className="w-[6%] min-w-[80px] text-center print:text-black">Andaimes</TableHead>
                                     <TableHead className="w-[12%] min-w-[110px] print:text-black">Valor (€)</TableHead>
                                     <TableHead className="w-[10%] min-w-[100px] print:text-black">Transporte (€)</TableHead>
                                     <TableHead className="w-[12%] min-w-[100px] print:text-black">Pagamento</TableHead>
@@ -1502,7 +1503,7 @@ export default function Dashboard() {
                             <TableBody>
                                 {displayRentals.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={7} className="text-center py-6 text-slate-400">
+                                        <TableCell colSpan={8} className="text-center py-6 text-slate-400">
                                             {(filterStartDate || filterEndDate)
                                                 ? 'Nenhum aluguer encontrado para o período selecionado.'
                                                 : activeRentals.length > 0 
@@ -1611,6 +1612,11 @@ export default function Dashboard() {
                                                                 Em dia
                                                             </span>
                                                         )}
+                                                    </TableCell>
+                                                    <TableCell className="text-center font-semibold text-slate-200 print:text-black">
+                                                        {(rental.items || [])
+                                                            .filter((it: any) => it.name?.toLowerCase().includes('andaime'))
+                                                            .reduce((sum: number, it: any) => sum + Number(it.quantity || 0), 0)}
                                                     </TableCell>
                                                     <TableCell className="font-semibold text-emerald-400 print:text-black print:font-bold">
                                                         <div className="flex flex-col">
@@ -1810,7 +1816,7 @@ export default function Dashboard() {
                                                 </TableRow>
                                                 {isExpanded && (
                                                     <TableRow className="bg-slate-950/40 hover:bg-slate-950/40 border-b border-slate-800">
-                                                        <TableCell colSpan={7} className="p-3 border-t border-slate-800/60">
+                                                        <TableCell colSpan={8} className="p-3 border-t border-slate-800/60">
                                                             <div className="pl-8 pr-4 py-2 space-y-2">
                                                                 <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                                                                     Histórico de Prolongamentos
@@ -1880,7 +1886,7 @@ export default function Dashboard() {
                             <TableFooter className="print:bg-white">
                                                                 <TableRow className="bg-slate-900 border-t border-slate-800 print:bg-white print:border-black">
                                                                     <TableCell className="md:hidden text-right font-medium text-slate-400 print:text-black" colSpan={2}>Total Filtrado (Pago):</TableCell>
-                                                                    <TableCell className="hidden md:table-cell text-right font-medium text-slate-400 print:text-black" colSpan={3}>Total Filtrado (Pago):</TableCell>
+                                                                    <TableCell className="hidden md:table-cell text-right font-medium text-slate-400 print:text-black" colSpan={4}>Total Filtrado (Pago):</TableCell>
                                                                     <TableCell className="font-bold text-emerald-400 print:text-black print:font-bold">
                                                                         {displayRentals
                                                                             .reduce((acc, r) => {

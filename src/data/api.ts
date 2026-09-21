@@ -72,6 +72,19 @@ export interface Rental {
     created_at?: string;
 }
 
+export interface Expense {
+    id: string;
+    expense_date: string; // YYYY-MM-DD
+    category: string; // chave de EXPENSE_CATEGORIES
+    description?: string | null;
+    amount: number;
+    paid_by?: string | null;
+    notes?: string | null;
+    created_at?: string;
+}
+
+export type ExpenseInput = Omit<Expense, 'id' | 'created_at'>;
+
 // ============================================
 // CLIENTES: Supabase Hook
 // ============================================
@@ -680,5 +693,79 @@ export function useGlobalRentals() {
         updatePaymentStatus,
         confirmPickup,
         refreshRentals: fetchRentals
+    };
+}
+
+// ============================================
+// DESPESAS: Supabase Hook
+// ============================================
+
+export function useGlobalExpenses() {
+    const [expenses, setExpenses] = useState<Expense[]>([]);
+    const [loading, setLoading] = useState(true);
+    // true quando a tabela ainda não existe no Supabase (migration_expenses.sql por executar)
+    const [tableMissing, setTableMissing] = useState(false);
+
+    const sortByDate = (list: Expense[]) =>
+        [...list].sort((a, b) => b.expense_date.localeCompare(a.expense_date) || (b.created_at || '').localeCompare(a.created_at || ''));
+
+    const normalize = (row: any): Expense => ({ ...row, amount: Number(row.amount || 0) });
+
+    async function fetchExpenses() {
+        await Promise.resolve();
+        setLoading(true);
+        const { data, error } = await supabase.from('expenses').select('*').order('expense_date', { ascending: false });
+        if (!error && data) {
+            setExpenses(data.map(normalize));
+            setTableMissing(false);
+        } else if (error) {
+            console.error('Erro ao carregar despesas:', error.message);
+            setTableMissing(error.code === 'PGRST205' || error.code === '42P01');
+        }
+        setLoading(false);
+    }
+
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        fetchExpenses();
+    }, []);
+
+    function toPayload(input: Partial<ExpenseInput>) {
+        return {
+            ...input,
+            description: input.description?.trim() || null,
+            paid_by: input.paid_by?.trim() || null,
+            notes: input.notes?.trim() || null,
+        };
+    }
+
+    async function addExpense(input: ExpenseInput) {
+        const { data, error } = await supabase.from('expenses').insert([toPayload(input)]).select().single();
+        if (error) throw new Error(error.message);
+        setExpenses(prev => sortByDate([...prev, normalize(data)]));
+        return normalize(data);
+    }
+
+    async function updateExpense(id: string, input: Partial<ExpenseInput>) {
+        const { data, error } = await supabase.from('expenses').update(toPayload(input)).eq('id', id).select().single();
+        if (error) throw new Error(error.message);
+        setExpenses(prev => sortByDate(prev.map(e => (e.id === id ? normalize(data) : e))));
+        return normalize(data);
+    }
+
+    async function deleteExpense(id: string) {
+        const { error } = await supabase.from('expenses').delete().eq('id', id);
+        if (error) throw new Error(error.message);
+        setExpenses(prev => prev.filter(e => e.id !== id));
+    }
+
+    return {
+        expenses,
+        loading,
+        tableMissing,
+        addExpense,
+        updateExpense,
+        deleteExpense,
+        refreshExpenses: fetchExpenses
     };
 }

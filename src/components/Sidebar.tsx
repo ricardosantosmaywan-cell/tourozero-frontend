@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Home, Users, CalendarDays, Package, LogOut, RefreshCw } from 'lucide-react';
+import { Home, Users, CalendarDays, Package, Wallet, LogOut, RefreshCw } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -50,6 +50,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
         { icon: Users, label: 'Clientes', path: '/customers' },
         { icon: CalendarDays, label: 'Agendamentos', path: '/rentals' },
         { icon: Package, label: 'Estoque', path: '/inventory' },
+        { icon: Wallet, label: 'Financeiro', path: '/financeiro' },
     ];
 
     return (

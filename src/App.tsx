@@ -7,6 +7,7 @@ import Customers from './pages/Customers';
 import Rentals from './pages/Rentals';
 import Inventory from './pages/Inventory';
 import Accounting from './pages/Accounting';
+import Financial from './pages/Financial';
 import PublicRegistration from './pages/PublicRegistration';
 import Login from './pages/Login';
 
@@ -43,6 +44,7 @@ function App() {
               <Route path="rentals" element={<Rentals />} />
               <Route path="inventory" element={<Inventory />} />
               <Route path="accounting" element={<Accounting />} />
+              <Route path="financeiro" element={<Financial />} />
             </Route>
           </Routes>
         </Router>

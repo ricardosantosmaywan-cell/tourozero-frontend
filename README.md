@@ -15,6 +15,7 @@
 - 📦 **Gestão de Inventário:** Controlo de stock e visualização do estado em tempo real.
 - 🗂️ **Alugueres e Contratos:** Geração automatizada de contratos e recibos em HTML/A4, com suporte a múltiplos prolongamentos.
 - 💰 **Contabilidade:** Partilha e acerto automático de valores financeiros entre sócios (Ex: 80/20 base + 50/50 transporte) e gestão direta de prolongamentos (criação, edição e exclusão integrada).
+- 🧾 **Financeiro / DRE:** Lançamento de despesas (combustível, manutenção da carrinha, portagens, etc.) e DRE do período em regime de caixa (receita recebida − despesas = resultado e margem). Requer executar `migration_expenses.sql` no Supabase.
 
 ## 💻 Tecnologias
 - **Frontend:** React 19, Vite, TypeScript
