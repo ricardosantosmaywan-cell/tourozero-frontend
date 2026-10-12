@@ -513,8 +513,13 @@ export function useGlobalRentals() {
             }
 
             // Se o payload tem itens, reconstrói a relação
+            // Guarda os ids dos itens antigos: os novos são inseridos primeiro e só depois
+            // os antigos são apagados, para nunca perder itens se a gravação falhar.
+            let oldItemIds: string[] = [];
             if (hasItemsInPayload) {
-                await supabase.from('rental_items').delete().eq('rental_id', id);
+                const { data: oldItems, error: oldItemsError } = await supabase.from('rental_items').select('id').eq('rental_id', id);
+                if (oldItemsError) throw new Error(`Erro ao ler itens: ${oldItemsError.message}`);
+                oldItemIds = (oldItems || []).map((r: any) => r.id);
             }
 
             const rentalPayload: any = {
@@ -554,7 +559,12 @@ export function useGlobalRentals() {
                     quantity: it.quantity,
                     price_unit: it.price_unit || 0
                 }));
-                await supabase.from('rental_items').insert(itemsPayload);
+                const { error: insertError } = await supabase.from('rental_items').insert(itemsPayload);
+                if (insertError) throw new Error(`Erro ao gravar itens: ${insertError.message}`);
+                if (oldItemIds.length > 0) {
+                    const { error: deleteError } = await supabase.from('rental_items').delete().in('id', oldItemIds);
+                    if (deleteError) throw new Error(`Erro ao remover itens antigos: ${deleteError.message}`);
+                }
 
                 if (updatedData.status === 'active' && wasConfirmed) {
                     for (const it of updatedData.items) {

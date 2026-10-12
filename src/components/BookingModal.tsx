@@ -328,6 +328,7 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
             transport_volta_paid: transportVoltaPaid,
             iva_materials: calcIvaMats,
             iva_transport: calcIvaTransp,
+            delivery_address: deliveryAddress,
             observacoes: notes,
             payment_status: paymentStatus,
             received_by: receivedBy,
@@ -403,7 +404,7 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
 
                 <form onSubmit={handleSave} className="space-y-3">
                     {formError && (
-                        <div className="rounded-md bg-red-500/10 p-2 border border-red-500/20 text-[11px] text-red-500">
+                        <div ref={(el) => el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })} className="rounded-md bg-red-500/10 p-2 border border-red-500/20 text-[11px] text-red-500">
                             {formError}
                         </div>
                     )}
@@ -622,7 +623,18 @@ export function BookingModal({ isOpen, onClose, rentalToEdit, onSuccess }: Booki
                         <div className="space-y-1 max-h-[180px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-800">
                             {selectedProducts.length > 0 ? selectedProducts.map((sp, idx) => (
                                 <div key={idx} className="flex items-center justify-between gap-2 p-1.5 bg-slate-900/60 rounded border border-slate-800/40 group">
-                                    <span className="text-[10px] font-medium text-slate-300 flex-1 min-w-0 truncate"><span className="text-amber-500 font-bold">{sp.quantity}x</span> {sp.product.name}</span>
+                                    <Input
+                                        type="number"
+                                        min="1"
+                                        aria-label={`Quantidade de ${sp.product.name}`}
+                                        value={sp.quantity}
+                                        onChange={(e) => {
+                                            const quantity = Math.max(1, parseInt(e.target.value) || 1);
+                                            setSelectedProducts(selectedProducts.map((item, i) => i === idx ? { ...item, quantity } : item));
+                                        }}
+                                        className="h-7 w-14 shrink-0 text-xs px-1 border-slate-700 bg-slate-900 text-amber-500 font-bold focus:ring-amber-500"
+                                    />
+                                    <span className="text-[10px] font-medium text-slate-300 flex-1 min-w-0 truncate">{sp.product.name}</span>
                                     <div className="relative w-24 shrink-0">
                                         <Input
                                             type="number"
